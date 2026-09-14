@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import {
   HealthResponseSchema,
+  IdempotencyKeySchema,
   NimiqNetworkSchema,
   ProductImageResponseSchema,
   ProductDraftSchema,
+  PurchaseIntentRequestSchema,
   PublishProductRequestSchema,
   WalletChallengeRequestSchema,
   WalletSessionRequestSchema,
@@ -12,6 +14,7 @@ import { AuthServiceError, createWalletSession, issueWalletChallenge } from './a
 import { SessionAuthenticationError, authenticatedWallet } from './auth/session'
 import { ProductServiceError, createPublishedProduct, issueProductProof } from './products/service'
 import { PublicProductError, getPublicProduct } from './products/public'
+import { PaymentIntentServiceError, createInitialPurchaseIntent } from './payments/service'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -132,6 +135,39 @@ app.post('/api/products', async (c) => {
   return c.json(product, 201, { 'Cache-Control': 'no-store' })
 })
 
+app.post('/api/products/:productId/purchase-intents', async (c) => {
+  const buyerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const idempotencyKey = IdempotencyKeySchema.safeParse(c.req.header('Idempotency-Key'))
+  if (!idempotencyKey.success) {
+    return c.json({
+      error: 'invalid_idempotency_key',
+      message: 'Idempotency-Key must be 16-128 URL-safe characters.',
+      recoverable: true,
+    }, 400)
+  }
+
+  const rawBody = await c.req.text()
+  const payload = PurchaseIntentRequestSchema.safeParse(rawBody
+    ? (() => { try { return JSON.parse(rawBody) as unknown } catch { return null } })()
+    : {})
+  if (!payload.success) {
+    return c.json({
+      error: 'invalid_purchase_intent',
+      message: 'Purchase values are selected by the server and cannot be overridden.',
+      recoverable: true,
+    }, 400)
+  }
+
+  const result = await createInitialPurchaseIntent(
+    c.env.DB,
+    c.req.param('productId'),
+    buyerAddress,
+    idempotencyKey.data,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  )
+  return c.json(result.intent, result.created ? 201 : 200, { 'Cache-Control': 'no-store' })
+})
+
 app.get('/api/products/:productId', async (c) => {
   const versionValue = c.req.query('version')
   const version = versionValue === undefined ? undefined : Number(versionValue)
@@ -196,6 +232,9 @@ app.get('/api/product-images', async (c) => {
 app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 404))
 
 app.onError((error, c) => {
+  if (error instanceof PaymentIntentServiceError) {
+    return c.json({ error: error.code, message: error.message, recoverable: true }, error.status)
+  }
   if (error instanceof PublicProductError) {
     return c.json({ error: 'product_not_found', message: error.message }, 404)
   }

@@ -7,6 +7,7 @@ const migration = [
   '0001_lifecycle_schema.sql',
   '0002_wallet_auth_invariants.sql',
   '0003_product_issuance.sql',
+  '0004_purchase_intents.sql',
 ].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 const hash = (character: string) => character.repeat(64)
 const address = (suffix: string) => `NQ00NIMTRACE${suffix.padStart(12, '0')}`
@@ -81,12 +82,22 @@ describe('D1 lifecycle migration', () => {
 
   it('enforces transaction-hash and event-sequence uniqueness', () => {
     seedPassport(database)
+    database.exec(`
+      INSERT INTO products (id, issuer_address, title, status)
+      VALUES ('product-2', '${address('1')}', 'Second Edition', 'offered');
+      INSERT INTO product_versions (
+        product_id, version, canonical_payload, payload_hash, issuer_public_key, issuer_signature
+      ) VALUES (
+        'product-2', 1, '{"title":"Second Edition"}', '${hash('g')}',
+        '${'x'.repeat(64)}', '${'y'.repeat(128)}'
+      );
+    `)
     expect(() => database.exec(`
       INSERT INTO payment_intents (
         id, purpose, product_id, seller_address, buyer_address, amount_luna,
         transaction_data, expires_at, status, transaction_hash, confirmed_block_height, confirmed_at
       ) VALUES (
-        'payment-2', 'initial_purchase', 'product-1', '${address('1')}', '${address('3')}',
+        'payment-2', 'initial_purchase', 'product-2', '${address('1')}', '${address('3')}',
         200000, 'NTRC-PURCHASE-0002', '2099-01-01T00:00:00.000Z', 'confirmed',
         '${hash('b')}', 43, '2026-09-14T12:01:00.000Z'
       );
