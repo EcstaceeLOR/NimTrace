@@ -48,6 +48,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [D1 schema, migrations, and concurrency](docs/DATABASE.md)
 - [Nimiq Pay wallet adapter and error outcomes](docs/WALLET_ADAPTER.md)
 - [Signed wallet authentication](docs/WALLET_AUTH.md)
+- [Canonical proof and signature format](docs/PROOF_FORMAT.md)
 
 ## Local development
 
