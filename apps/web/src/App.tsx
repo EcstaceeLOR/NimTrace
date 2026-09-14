@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
+import { ProductIssuance } from './features/issuer/ProductIssuance'
 
 type ApiState =
   | { status: 'checking' }
@@ -19,6 +20,7 @@ type WalletState =
 export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })
   const [wallet, setWallet] = useState<WalletState>({ status: 'idle' })
+  const [showIssuer, setShowIssuer] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -60,6 +62,32 @@ export function App() {
     }
   }
 
+  async function issueProduct() {
+    if (wallet.status === 'connected') {
+      setShowIssuer(true)
+      return
+    }
+    if (!nimiqPayWallet.isAvailable()) {
+      setWallet({ status: 'outside', deepLink: nimiqPayWallet.deepLink() })
+      return
+    }
+
+    setWallet({ status: 'authenticating' })
+    const outcome = await authenticateWallet()
+    if (outcome.status === 'success') {
+      setWallet({
+        status: 'connected',
+        address: outcome.session.walletAddress,
+        sessionToken: outcome.session.sessionToken,
+      })
+      setShowIssuer(true)
+    } else if (outcome.status === 'cancelled') {
+      setWallet({ status: 'cancelled' })
+    } else {
+      setWallet({ status: 'error', message: outcome.error.message })
+    }
+  }
+
   return (
     <main>
       <nav className="nav" aria-label="Primary navigation">
@@ -89,7 +117,14 @@ export function App() {
             >
               {wallet.status === 'authenticating' ? 'Waiting for Nimiq Pay…' : 'View my passports'}
             </button>
-            <button className="button button--secondary" type="button">Verify a product</button>
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={wallet.status === 'authenticating'}
+              onClick={() => void issueProduct()}
+            >
+              Issue a product
+            </button>
           </div>
           {wallet.status === 'outside' && (
             <p className="wallet-notice" role="status">
@@ -130,6 +165,12 @@ export function App() {
           </div>
         </article>
       </section>
+      {showIssuer && wallet.status === 'connected' && (
+        <ProductIssuance
+          sessionToken={wallet.sessionToken}
+          onClose={() => setShowIssuer(false)}
+        />
+      )}
     </main>
   )
 }

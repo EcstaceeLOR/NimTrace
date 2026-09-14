@@ -79,3 +79,4 @@ export type WalletSessionResponse = z.infer<typeof WalletSessionResponseSchema>
 export type AuthErrorResponse = z.infer<typeof AuthErrorResponseSchema>
 
 export * from './proofs'
+export * from './products'
