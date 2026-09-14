@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   HealthResponseSchema,
+  IdempotencyKeySchema,
   ProductPassportStatusSchema,
   WalletChallengeResponseSchema,
   WalletSessionRequestSchema,
@@ -38,5 +39,11 @@ describe('shared contracts', () => {
       publicKey: 'a'.repeat(64),
       signature: 'b'.repeat(128),
     })).toThrow()
+  })
+
+  it('accepts only bounded URL-safe idempotency keys', () => {
+    expect(IdempotencyKeySchema.parse('purchase-attempt_0001')).toBe('purchase-attempt_0001')
+    expect(() => IdempotencyKeySchema.parse('short')).toThrow()
+    expect(() => IdempotencyKeySchema.parse('purchase attempt 0001')).toThrow()
   })
 })
