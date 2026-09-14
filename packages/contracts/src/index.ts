@@ -77,3 +77,5 @@ export type WalletChallengeResponse = z.infer<typeof WalletChallengeResponseSche
 export type WalletSessionRequest = z.infer<typeof WalletSessionRequestSchema>
 export type WalletSessionResponse = z.infer<typeof WalletSessionResponseSchema>
 export type AuthErrorResponse = z.infer<typeof AuthErrorResponseSchema>
+
+export * from './proofs'
