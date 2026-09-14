@@ -3,6 +3,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import { KeyPair } from '@nimiq/core'
 import {
   ProductIssuanceChallengeResponseSchema,
+  PublicProductResponseSchema,
   PublishedProductResponseSchema,
 } from '@nimtrace/contracts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -185,6 +186,66 @@ describe('merchant product issuance API', () => {
     expect(() => database.prepare(`
       UPDATE product_versions SET canonical_payload = '{}' WHERE product_id = ? AND version = 1
     `).run(challenge.payload.productId)).toThrow(/product_versions_are_immutable/)
+
+    const publicResponse = await app.request(`/api/products/${challenge.payload.productId}`, undefined, {
+      DB: db,
+      NIMIQ_NETWORK: 'main-albatross',
+    })
+    expect(publicResponse.status).toBe(200)
+    expect(PublicProductResponseSchema.parse(await publicResponse.json())).toMatchObject({
+      id: challenge.payload.productId,
+      issuerAddress: walletAddress,
+      priceLuna: 100000,
+      signatureState: 'verified',
+      state: 'available',
+      title: 'NimTrace Headphones',
+      warrantyDurationDays: 730,
+    })
+  })
+
+  it('reports suspended, replaced, and cryptographically invalid versions honestly', async () => {
+    const challenge = await requestChallenge()
+    expect((await publish(challenge)).status).toBe(201)
+
+    database.prepare(`UPDATE products SET status = 'suspended' WHERE id = ?`)
+      .run(challenge.payload.productId)
+    const suspended = await app.request(`/api/products/${challenge.payload.productId}`, undefined, {
+      DB: db,
+      NIMIQ_NETWORK: 'main-albatross',
+    })
+    expect(PublicProductResponseSchema.parse(await suspended.json()).state).toBe('suspended')
+
+    database.prepare(`
+      INSERT INTO product_versions (
+        product_id, version, canonical_payload, payload_hash, issuer_public_key, issuer_signature
+      ) VALUES (?, 2, '{}', ?, ?, ?)
+    `).run(challenge.payload.productId, 'd'.repeat(64), 'e'.repeat(64), 'f'.repeat(128))
+
+    const oldVersion = await app.request(
+      `/api/products/${challenge.payload.productId}?version=1`,
+      undefined,
+      { DB: db, NIMIQ_NETWORK: 'main-albatross' },
+    )
+    expect(PublicProductResponseSchema.parse(await oldVersion.json()).state).toBe('suspended')
+
+    database.prepare(`UPDATE products SET status = 'offered' WHERE id = ?`)
+      .run(challenge.payload.productId)
+    const replaced = await app.request(
+      `/api/products/${challenge.payload.productId}?version=1`,
+      undefined,
+      { DB: db, NIMIQ_NETWORK: 'main-albatross' },
+    )
+    expect(PublicProductResponseSchema.parse(await replaced.json()).state).toBe('replaced')
+
+    const invalid = await app.request(`/api/products/${challenge.payload.productId}`, undefined, {
+      DB: db,
+      NIMIQ_NETWORK: 'main-albatross',
+    })
+    expect(PublicProductResponseSchema.parse(await invalid.json())).toMatchObject({
+      signatureState: 'invalid',
+      state: 'invalid',
+      version: 2,
+    })
   })
 
   it('rejects nonce replay', async () => {

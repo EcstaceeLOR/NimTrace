@@ -34,16 +34,21 @@ cleanup of abandoned uploads. If R2 is unavailable, the API returns the fixed
 repository-controlled `demo-product.svg` and its verified SHA-256 hash. The
 merchant sees a fallback notice and can still complete the core signed flow.
 
-## Cloudflare setup
+## Card-free fallback and optional Cloudflare setup
 
-The Worker declares a `PRODUCT_IMAGES` R2 binding for `nimtrace-images`, with
-`nimtrace-images-preview` as its preview bucket. R2 must first be enabled for
-the Cloudflare account, after which the buckets can be created with:
+The default deployment deliberately omits the `PRODUCT_IMAGES` binding and
+uses the fixed demo image, because enabling R2 requires a billing profile. This
+keeps the hackathon deployment card-free and prevents a nonexistent binding
+from blocking the Worker deployment.
+
+If R2 is enabled later, create the buckets with:
 
 ```powershell
 node --use-system-ca node_modules\wrangler\bin\wrangler.js r2 bucket create nimtrace-images-preview
 node --use-system-ca node_modules\wrangler\bin\wrangler.js r2 bucket create nimtrace-images
 ```
 
-This follows Cloudflare's documented pattern for authenticated Worker uploads
-and direct R2 bindings.
+Then add a `PRODUCT_IMAGES` R2 binding for `nimtrace-images`, with
+`nimtrace-images-preview` as its preview bucket. The application code already
+detects the binding and switches from fallback to real object storage without
+any other code change.

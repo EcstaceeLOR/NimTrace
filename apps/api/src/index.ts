@@ -11,6 +11,7 @@ import {
 import { AuthServiceError, createWalletSession, issueWalletChallenge } from './auth/service'
 import { SessionAuthenticationError, authenticatedWallet } from './auth/session'
 import { ProductServiceError, createPublishedProduct, issueProductProof } from './products/service'
+import { PublicProductError, getPublicProduct } from './products/public'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -131,6 +132,21 @@ app.post('/api/products', async (c) => {
   return c.json(product, 201, { 'Cache-Control': 'no-store' })
 })
 
+app.get('/api/products/:productId', async (c) => {
+  const versionValue = c.req.query('version')
+  const version = versionValue === undefined ? undefined : Number(versionValue)
+  if (version !== undefined && (!Number.isSafeInteger(version) || version < 1)) {
+    return c.json({ error: 'invalid_version', message: 'Product version must be a positive integer.' }, 400)
+  }
+  const product = await getPublicProduct(
+    c.env.DB,
+    c.req.param('productId'),
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+    version,
+  )
+  return c.json(product, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=300' })
+})
+
 app.post('/api/product-images', async (c) => {
   const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
   const declaredLength = Number(c.req.header('Content-Length') ?? 0)
@@ -180,6 +196,9 @@ app.get('/api/product-images', async (c) => {
 app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 404))
 
 app.onError((error, c) => {
+  if (error instanceof PublicProductError) {
+    return c.json({ error: 'product_not_found', message: error.message }, 404)
+  }
   if (error instanceof ProductImageError) {
     return c.json({ error: error.code, message: error.message, recoverable: true }, error.status)
   }
