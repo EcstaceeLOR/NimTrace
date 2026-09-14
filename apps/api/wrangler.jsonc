@@ -12,6 +12,13 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "PRODUCT_IMAGES",
+      "bucket_name": "nimtrace-images",
+      "preview_bucket_name": "nimtrace-images-preview"
+    }
+  ],
   "vars": {
     "ENVIRONMENT": "development",
     "APP_VERSION": "0.1.0",
