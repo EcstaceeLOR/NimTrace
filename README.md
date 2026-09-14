@@ -53,6 +53,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Safe product-image processing and R2 storage](docs/PRODUCT_IMAGES.md)
 - [Public product verification, QR, and Nimiq Pay handoff](docs/PUBLIC_PRODUCT.md)
 - [Buyer-bound purchase intents and transaction tags](docs/PURCHASE_INTENTS.md)
+- [Direct Nimiq Pay checkout and recovery states](docs/NIM_CHECKOUT.md)
 
 ## Local development
 

@@ -3,6 +3,7 @@ import {
   HealthResponseSchema,
   IdempotencyKeySchema,
   NimiqNetworkSchema,
+  PaymentSubmissionRequestSchema,
   ProductImageResponseSchema,
   ProductDraftSchema,
   PurchaseIntentRequestSchema,
@@ -14,7 +15,11 @@ import { AuthServiceError, createWalletSession, issueWalletChallenge } from './a
 import { SessionAuthenticationError, authenticatedWallet } from './auth/session'
 import { ProductServiceError, createPublishedProduct, issueProductProof } from './products/service'
 import { PublicProductError, getPublicProduct } from './products/public'
-import { PaymentIntentServiceError, createInitialPurchaseIntent } from './payments/service'
+import {
+  PaymentIntentServiceError,
+  createInitialPurchaseIntent,
+  recordPaymentSubmission,
+} from './payments/service'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -166,6 +171,25 @@ app.post('/api/products/:productId/purchase-intents', async (c) => {
     networkFromEnvironment(c.env.NIMIQ_NETWORK),
   )
   return c.json(result.intent, result.created ? 201 : 200, { 'Cache-Control': 'no-store' })
+})
+
+app.post('/api/payment-intents/:intentId/submissions', async (c) => {
+  const buyerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const payload = PaymentSubmissionRequestSchema.safeParse(await c.req.json().catch(() => null))
+  if (!payload.success) {
+    return c.json({
+      error: 'invalid_transaction_hash',
+      message: 'A valid Nimiq transaction hash is required.',
+      recoverable: true,
+    }, 400)
+  }
+  const submission = await recordPaymentSubmission(
+    c.env.DB,
+    c.req.param('intentId'),
+    buyerAddress,
+    payload.data.transactionHash,
+  )
+  return c.json(submission, 200, { 'Cache-Control': 'no-store' })
 })
 
 app.get('/api/products/:productId', async (c) => {

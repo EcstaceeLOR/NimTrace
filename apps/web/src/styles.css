@@ -96,6 +96,18 @@
 .warranty-claim p { margin: 0.5rem 0 0; color: var(--muted); line-height: 1.5; }
 .product-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
 .product-actions a { text-decoration: none; text-align: center; }
+.checkout-review, .checkout-status { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: 16px; background: rgba(58, 232, 194, 0.055); }
+.checkout-review h2 { margin: 0.4rem 0 1rem; }
+.checkout-facts { display: grid; gap: 0; margin: 0 0 1rem; }
+.checkout-facts div { display: grid; grid-template-columns: minmax(7rem, 0.65fr) minmax(0, 1.35fr); gap: 0.75rem; padding: 0.65rem 0; border-bottom: 1px solid var(--line); }
+.checkout-facts dt { color: var(--muted); }
+.checkout-facts dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-family: ui-monospace, monospace; }
+.checkout-notice, .checkout-status p { color: var(--muted); line-height: 1.5; }
+.checkout-error { color: #ff9d9d; }
+.checkout-status { overflow-wrap: anywhere; }
+.checkout-status code { font-size: 0.75rem; }
+.checkout-status--submitted { border-color: rgba(58, 232, 194, 0.4); }
+.checkout-status--delayed { border-color: rgba(255, 199, 102, 0.4); }
 .product-trust-note { font-size: 0.78rem; }
 .product-proof-details { display: flex; justify-content: space-between; align-items: center; gap: 2rem; margin: 2rem 0 5rem; padding: clamp(1.25rem, 4vw, 2.5rem); border: 1px solid var(--line); border-radius: 24px; background: rgba(255, 255, 255, 0.035); }
 .product-proof-details h2 { margin: 0.4rem 0; }

@@ -1,6 +1,8 @@
 import {
+  PaymentSubmissionResponseSchema,
   PurchaseIntentResponseSchema,
   type NimiqNetwork,
+  type PaymentSubmissionResponse,
   type PurchaseIntentResponse,
 } from '@nimtrace/contracts'
 import { randomToken, sha256Hex } from '../auth/crypto'
@@ -8,8 +10,10 @@ import { getPublicProduct } from '../products/public'
 import {
   expirePendingPurchaseIntents,
   findActiveInitialPurchaseIntent,
+  findPaymentIntent,
   findPurchaseIntentByIdempotency,
   insertInitialPurchaseIntent,
+  submitPaymentIntent,
 } from './repository'
 
 const PURCHASE_INTENT_TTL_MS = 10 * 60 * 1000
@@ -19,10 +23,18 @@ export class PaymentIntentServiceError extends Error {
   constructor(
     readonly code: string,
     message: string,
-    readonly status: 400 | 409,
+    readonly status: 400 | 404 | 409,
   ) {
     super(message)
   }
+}
+
+function submissionResponse(
+  id: string,
+  status: 'submitted' | 'confirmed',
+  transactionHash: string,
+): PaymentSubmissionResponse {
+  return PaymentSubmissionResponseSchema.parse({ id, status, transactionHash })
 }
 
 function fail(code: string, message: string, status: PaymentIntentServiceError['status']): never {
@@ -102,4 +114,46 @@ export async function createInitialPurchaseIntent(
     if (winner) return fail('product_checkout_busy', 'Another checkout is already active for this product.', 409)
     throw error
   }
+}
+
+export async function recordPaymentSubmission(
+  db: D1Database,
+  intentId: string,
+  buyerAddress: string,
+  transactionHash: string,
+  now = new Date(),
+): Promise<PaymentSubmissionResponse> {
+  let stored = await findPaymentIntent(db, intentId)
+  if (!stored || stored.intent.buyerAddress !== buyerAddress) {
+    return fail('payment_intent_not_found', 'This payment intent was not found.', 404)
+  }
+
+  if (stored.intent.status === 'submitted' || stored.intent.status === 'confirmed') {
+    if (stored.transactionHash !== transactionHash) {
+      return fail('transaction_hash_conflict', 'This intent already has a different transaction hash.', 409)
+    }
+    return submissionResponse(intentId, stored.intent.status, transactionHash)
+  }
+
+  if (stored.intent.status !== 'pending') {
+    return fail('payment_intent_not_pending', 'This payment intent can no longer accept a transaction.', 409)
+  }
+
+  try {
+    if (await submitPaymentIntent(db, intentId, buyerAddress, transactionHash, now.toISOString())) {
+      return submissionResponse(intentId, 'submitted', transactionHash)
+    }
+  } catch (error) {
+    if (error instanceof Error && /transaction_hash/i.test(error.message)) {
+      return fail('transaction_hash_conflict', 'This transaction is already linked to another intent.', 409)
+    }
+    throw error
+  }
+
+  stored = await findPaymentIntent(db, intentId)
+  if (stored?.transactionHash === transactionHash
+    && (stored.intent.status === 'submitted' || stored.intent.status === 'confirmed')) {
+    return submissionResponse(intentId, stored.intent.status, transactionHash)
+  }
+  return fail('payment_submission_conflict', 'The payment intent changed before submission was saved.', 409)
 }

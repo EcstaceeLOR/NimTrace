@@ -48,6 +48,32 @@ function toPurchaseIntent(row: PaymentIntentRow): PurchaseIntentResponse {
   }
 }
 
+export interface StoredPaymentIntent {
+  confirmedAt: string | null
+  confirmedBlockHeight: number | null
+  failureCode: string | null
+  intent: PurchaseIntentResponse
+  transactionHash: string | null
+}
+
+export async function findPaymentIntent(
+  db: D1Database,
+  intentId: string,
+): Promise<StoredPaymentIntent | null> {
+  const row = await db.prepare(`
+    SELECT ${intentProjection}
+    FROM payment_intents
+    WHERE id = ?
+  `).bind(intentId).first<PaymentIntentRow>()
+  return row ? {
+    confirmedAt: row.confirmed_at,
+    confirmedBlockHeight: row.confirmed_block_height,
+    failureCode: row.failure_code,
+    intent: toPurchaseIntent(row),
+    transactionHash: row.transaction_hash,
+  } : null
+}
+
 export async function findPurchaseIntentByIdempotency(
   db: D1Database,
   buyerAddress: string,
@@ -128,8 +154,8 @@ export async function submitPaymentIntent(
   const result = await db.prepare(`
     UPDATE payment_intents
     SET status = 'submitted', transaction_hash = ?, updated_at = ?
-    WHERE id = ? AND buyer_address = ? AND status = 'pending' AND expires_at > ?
-  `).bind(transactionHash, now, intentId, buyerAddress, now).run()
+    WHERE id = ? AND buyer_address = ? AND status = 'pending'
+  `).bind(transactionHash, now, intentId, buyerAddress).run()
   return (result.meta.changes ?? 0) === 1
 }
 
