@@ -20,6 +20,7 @@ body {
 
 button, a { font: inherit; }
 button { cursor: pointer; }
+button:disabled { cursor: wait; opacity: 0.72; }
 
 main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-top) 24px 56px; }
 
@@ -50,6 +51,9 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .button--primary { color: #07110f; background: #3ae8c2; }
 .button--secondary { color: #f8f8f6; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); }
 .foundation-note { margin-top: 18px; color: #727b89; font-size: 0.76rem; }
+.wallet-notice { max-width: 570px; margin: 16px 0 0; color: #c8ced7; font-size: 0.88rem; line-height: 1.5; }
+.wallet-notice a { color: #83ffe5; font-weight: 760; }
+.wallet-notice--error { color: #ffaaa2; }
 
 .passport { position: relative; overflow: hidden; min-height: 530px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 28px; background: linear-gradient(145deg, rgba(24, 29, 39, 0.96), rgba(12, 15, 21, 0.97)); box-shadow: 0 42px 100px rgba(0, 0, 0, 0.38); }
 .passport-glow { position: absolute; inset: -30% auto auto -20%; width: 80%; aspect-ratio: 1; border-radius: 50%; background: rgba(58, 232, 194, 0.09); filter: blur(45px); }

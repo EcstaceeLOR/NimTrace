@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
+    maxWorkers: 1,
+    pool: 'threads',
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
   },

@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react'
 import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
+import { nimiqPayWallet } from './lib/nimiq/wallet'
 
 type ApiState =
   | { status: 'checking' }
   | { status: 'online'; health: HealthResponse }
   | { status: 'offline' }
 
+type WalletState =
+  | { status: 'idle' }
+  | { status: 'connecting' }
+  | { status: 'connected'; address: string }
+  | { status: 'cancelled' }
+  | { status: 'outside'; deepLink: string }
+  | { status: 'error'; message: string }
+
 export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })
+  const [wallet, setWallet] = useState<WalletState>({ status: 'idle' })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -26,6 +36,24 @@ export function App() {
     void checkHealth()
     return () => controller.abort()
   }, [])
+
+  async function viewPassports() {
+    if (!nimiqPayWallet.isAvailable()) {
+      setWallet({ status: 'outside', deepLink: nimiqPayWallet.deepLink() })
+      return
+    }
+
+    setWallet({ status: 'connecting' })
+    const outcome = await nimiqPayWallet.connect()
+
+    if (outcome.status === 'success') {
+      setWallet({ status: 'connected', address: outcome.value.address })
+    } else if (outcome.status === 'cancelled') {
+      setWallet({ status: 'cancelled' })
+    } else {
+      setWallet({ status: 'error', message: outcome.error.message })
+    }
+  }
 
   return (
     <main>
@@ -48,10 +76,32 @@ export function App() {
             Payment-backed ownership, warranty, and service history—carried safely from one wallet to the next.
           </p>
           <div className="actions">
-            <button className="button button--primary" type="button">View my passports</button>
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={wallet.status === 'connecting'}
+              onClick={() => void viewPassports()}
+            >
+              {wallet.status === 'connecting' ? 'Waiting for Nimiq Pay…' : 'View my passports'}
+            </button>
             <button className="button button--secondary" type="button">Verify a product</button>
           </div>
-          <p className="foundation-note">Foundation preview · Wallet features arrive in the next vertical slice.</p>
+          {wallet.status === 'outside' && (
+            <p className="wallet-notice" role="status">
+              Public verification works here. To view wallet-owned passports,{' '}
+              <a href={wallet.deepLink}>open NimTrace in Nimiq Pay</a>.
+            </p>
+          )}
+          {wallet.status === 'connected' && (
+            <p className="wallet-notice" role="status">Wallet connected: {wallet.address}</p>
+          )}
+          {wallet.status === 'cancelled' && (
+            <p className="wallet-notice" role="status">Connection cancelled. Nothing was signed or paid.</p>
+          )}
+          {wallet.status === 'error' && (
+            <p className="wallet-notice wallet-notice--error" role="alert">{wallet.message}</p>
+          )}
+          <p className="foundation-note">Wallet-ready foundation · Public verification never requires a connection.</p>
         </div>
 
         <article className="passport" aria-label="Example product passport">

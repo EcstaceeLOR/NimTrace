@@ -46,6 +46,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Cycle II delivery plan](docs/DELIVERY_PLAN.md)
 - [Local development and Nimiq Pay loading](docs/DEVELOPMENT.md)
 - [D1 schema, migrations, and concurrency](docs/DATABASE.md)
+- [Nimiq Pay wallet adapter and error outcomes](docs/WALLET_ADAPTER.md)
 
 ## Local development
 
