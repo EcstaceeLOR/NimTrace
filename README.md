@@ -45,6 +45,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Security and trust model](docs/SECURITY.md)
 - [Cycle II delivery plan](docs/DELIVERY_PLAN.md)
 - [Local development and Nimiq Pay loading](docs/DEVELOPMENT.md)
+- [D1 schema, migrations, and concurrency](docs/DATABASE.md)
 
 ## Local development
 

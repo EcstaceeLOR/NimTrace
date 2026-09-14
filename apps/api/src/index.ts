@@ -3,6 +3,7 @@ import { HealthResponseSchema } from '@nimtrace/contracts'
 
 interface Bindings {
   APP_VERSION?: string
+  DB: D1Database
   ENVIRONMENT?: string
 }
 

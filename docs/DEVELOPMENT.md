@@ -57,6 +57,7 @@ the exact generated origin.
 ## Quality commands
 
 ```bash
+npm run db:migrate:local
 npm run lint
 npm run typecheck
 npm test
@@ -64,5 +65,5 @@ npm run build
 npm run test:e2e
 ```
 
-The first four commands run in CI. End-to-end tests are configured separately so
+The local migration and first four quality commands run in CI. End-to-end tests are configured separately so
 local developers can install and choose a Playwright browser explicitly.

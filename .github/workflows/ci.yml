@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Apply D1 migrations locally
+        run: npm run db:migrate:local
+
       - name: Unit tests
         run: npm test
 
