@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
+import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 
 type ApiState =
@@ -9,8 +10,8 @@ type ApiState =
 
 type WalletState =
   | { status: 'idle' }
-  | { status: 'connecting' }
-  | { status: 'connected'; address: string }
+  | { status: 'authenticating' }
+  | { status: 'connected'; address: string; sessionToken: string }
   | { status: 'cancelled' }
   | { status: 'outside'; deepLink: string }
   | { status: 'error'; message: string }
@@ -43,11 +44,15 @@ export function App() {
       return
     }
 
-    setWallet({ status: 'connecting' })
-    const outcome = await nimiqPayWallet.connect()
+    setWallet({ status: 'authenticating' })
+    const outcome = await authenticateWallet()
 
     if (outcome.status === 'success') {
-      setWallet({ status: 'connected', address: outcome.value.address })
+      setWallet({
+        status: 'connected',
+        address: outcome.session.walletAddress,
+        sessionToken: outcome.session.sessionToken,
+      })
     } else if (outcome.status === 'cancelled') {
       setWallet({ status: 'cancelled' })
     } else {
@@ -79,10 +84,10 @@ export function App() {
             <button
               className="button button--primary"
               type="button"
-              disabled={wallet.status === 'connecting'}
+              disabled={wallet.status === 'authenticating'}
               onClick={() => void viewPassports()}
             >
-              {wallet.status === 'connecting' ? 'Waiting for Nimiq Pay…' : 'View my passports'}
+              {wallet.status === 'authenticating' ? 'Waiting for Nimiq Pay…' : 'View my passports'}
             </button>
             <button className="button button--secondary" type="button">Verify a product</button>
           </div>
