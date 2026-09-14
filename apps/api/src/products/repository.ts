@@ -34,6 +34,7 @@ export async function findProofNonce(db: D1Database, id: string): Promise<ProofN
 }
 
 interface PublishProductInput {
+  createdAt: string
   envelopeJson: string
   nonce: string
   payload: ProductPayload
@@ -53,8 +54,8 @@ export async function publishProduct(db: D1Database, input: PublishProductInput)
     db.prepare(`
       INSERT INTO products (
         id, issuer_address, title, serial_number_hash, description, image_key, image_hash,
-        warranty_duration_days, price_luna, warranty_summary, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offered')
+        warranty_duration_days, price_luna, warranty_summary, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offered', ?, ?)
     `).bind(
       input.payload.productId,
       input.payload.issuerAddress,
@@ -66,12 +67,14 @@ export async function publishProduct(db: D1Database, input: PublishProductInput)
       input.payload.warrantyDurationDays,
       input.payload.priceLuna,
       input.payload.warrantySummary,
+      input.createdAt,
+      input.createdAt,
     ),
     db.prepare(`
       INSERT INTO product_versions (
         product_id, version, canonical_payload, payload_hash, issuer_public_key,
-        issuer_signature, proof_envelope, proof_nonce
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        issuer_signature, proof_envelope, proof_nonce, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       input.payload.productId,
       input.payload.version,
@@ -81,6 +84,7 @@ export async function publishProduct(db: D1Database, input: PublishProductInput)
       input.signature,
       input.envelopeJson,
       input.nonce,
+      input.createdAt,
     ),
   ])
 }

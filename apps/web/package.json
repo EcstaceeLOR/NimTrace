@@ -13,7 +13,11 @@
   "dependencies": {
     "@nimiq/mini-app-sdk": "0.1.0",
     "@nimtrace/contracts": "*",
+    "qrcode": "1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/qrcode": "1.5.6"
   }
 }

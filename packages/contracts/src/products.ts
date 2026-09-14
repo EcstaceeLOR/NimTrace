@@ -49,8 +49,36 @@ export const PublishedProductResponseSchema = z.object({
   version: z.number().int().positive(),
 }).strict()
 
+export const PublicProductStateSchema = z.enum([
+  'available',
+  'owned',
+  'replaced',
+  'suspended',
+  'invalid',
+])
+
+export const PublicProductResponseSchema = z.object({
+  currentVersion: z.number().int().positive(),
+  description: z.string().max(4000),
+  id: z.string().min(1).max(128),
+  imageUrl: z.string().min(1).max(1000),
+  issuedAt: z.iso.datetime(),
+  issuerAddress: z.string().min(8).max(64),
+  priceLuna: z.number().int().positive().safe(),
+  proofHash: hashSchema,
+  serialFingerprint: z.string().regex(/^[a-f0-9]{12}$/),
+  signatureState: z.enum(['verified', 'invalid']),
+  state: PublicProductStateSchema,
+  title: z.string().min(1).max(120),
+  version: z.number().int().positive(),
+  warrantyDurationDays: z.number().int().min(0).max(36500),
+  warrantySummary: z.string().min(1).max(1000),
+}).strict()
+
 export type ProductDraft = z.infer<typeof ProductDraftSchema>
 export type ProductPayload = z.infer<typeof ProductPayloadSchema>
 export type ProductIssuanceChallengeResponse = z.infer<typeof ProductIssuanceChallengeResponseSchema>
 export type PublishProductRequest = z.infer<typeof PublishProductRequestSchema>
 export type PublishedProductResponse = z.infer<typeof PublishedProductResponseSchema>
+export type PublicProductResponse = z.infer<typeof PublicProductResponseSchema>
+export type PublicProductState = z.infer<typeof PublicProductStateSchema>

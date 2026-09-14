@@ -3,6 +3,7 @@ import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
+import { PublicProductPage } from './features/products/PublicProductPage'
 
 type ApiState =
   | { status: 'checking' }
@@ -21,6 +22,7 @@ export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })
   const [wallet, setWallet] = useState<WalletState>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
+  const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -86,6 +88,10 @@ export function App() {
     } else {
       setWallet({ status: 'error', message: outcome.error.message })
     }
+  }
+
+  if (productRoute?.[1]) {
+    return <PublicProductPage productId={decodeURIComponent(productRoute[1])} />
   }
 
   return (

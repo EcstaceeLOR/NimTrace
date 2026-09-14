@@ -51,6 +51,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Canonical proof and signature format](docs/PROOF_FORMAT.md)
 - [Merchant product issuance](docs/PRODUCT_ISSUANCE.md)
 - [Safe product-image processing and R2 storage](docs/PRODUCT_IMAGES.md)
+- [Public product verification, QR, and Nimiq Pay handoff](docs/PUBLIC_PRODUCT.md)
 
 ## Local development
 

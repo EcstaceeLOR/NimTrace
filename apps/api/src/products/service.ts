@@ -117,6 +117,7 @@ export async function createPublishedProduct(
 
   try {
     await publishProduct(db, {
+      createdAt: now.toISOString(),
       envelopeJson: canonicalJson(proof.envelope),
       nonce: nonce.id,
       payload: proof.payload,
