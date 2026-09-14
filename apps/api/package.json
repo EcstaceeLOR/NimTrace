@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nimiq/core": "2.21.0",
     "@nimtrace/contracts": "*",
     "hono": "^4.13.7"
   }

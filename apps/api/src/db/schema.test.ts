@@ -3,7 +3,10 @@ import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { UPDATE_PASSPORT_OWNER_SQL } from './passports'
 
-const migration = readFileSync(new URL('../../migrations/0001_lifecycle_schema.sql', import.meta.url), 'utf8')
+const migration = [
+  '0001_lifecycle_schema.sql',
+  '0002_wallet_auth_invariants.sql',
+].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 const hash = (character: string) => character.repeat(64)
 const address = (suffix: string) => `NQ00NIMTRACE${suffix.padStart(12, '0')}`
 
@@ -143,5 +146,37 @@ describe('D1 lifecycle migration', () => {
     expect(() => database.exec(`
       UPDATE passports SET status = 'invalid', version = version + 1 WHERE id = 'passport-1';
     `)).toThrow(/CHECK constraint failed/)
+  })
+
+  it('atomically consumes a challenge when its session is inserted', () => {
+    const createdAt = '2026-09-14T12:00:00.000Z'
+    database.prepare(`
+      INSERT INTO wallet_challenges (
+        id, wallet_address, challenge_hash, expires_at, created_at
+      ) VALUES (?, ?, ?, ?, ?)
+    `).run('challenge-atomic', address('2'), hash('a'), '2026-09-14T12:05:00.000Z', createdAt)
+
+    database.prepare(`
+      INSERT INTO wallet_sessions (
+        id, wallet_address, challenge_id, token_hash, expires_at, last_seen_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'session-1', address('2'), 'challenge-atomic', hash('b'),
+      '2026-09-15T12:00:00.000Z', createdAt, createdAt,
+    )
+
+    const challenge = database.prepare(`
+      SELECT consumed_at FROM wallet_challenges WHERE id = 'challenge-atomic'
+    `).get() as { consumed_at: string }
+    expect(challenge.consumed_at).toBe(createdAt)
+
+    expect(() => database.prepare(`
+      INSERT INTO wallet_sessions (
+        id, wallet_address, challenge_id, token_hash, expires_at, last_seen_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'session-2', address('2'), 'challenge-atomic', hash('c'),
+      '2026-09-15T12:00:00.000Z', createdAt, createdAt,
+    )).toThrow(/challenge_unavailable/)
   })
 })
