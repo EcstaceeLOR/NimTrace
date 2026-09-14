@@ -44,6 +44,24 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Functional specification](docs/FUNCTIONAL_SPEC.md)
 - [Security and trust model](docs/SECURITY.md)
 - [Cycle II delivery plan](docs/DELIVERY_PLAN.md)
+- [Local development and Nimiq Pay loading](docs/DEVELOPMENT.md)
+
+## Local development
+
+```bash
+npm ci
+npm run dev:api
+```
+
+In a second terminal:
+
+```bash
+npm run dev:web
+```
+
+The web app runs at `http://localhost:5173` and the Worker API at
+`http://localhost:8787`. See the development guide for physical-device loading
+inside Nimiq Pay and all quality commands.
 
 ## Planned stack
 
@@ -57,8 +75,9 @@ Remove Nimiq from the system and the core ownership claim stops working.
 
 ## Repository status
 
-Architecture and delivery planning are complete. Implementation work is tracked
-in GitHub Issues under the **Cycle II Submission** milestone.
+Architecture and delivery planning are complete. The React mini app, Worker API,
+shared contracts, automated checks, and CI foundation are implemented.
+Feature work is tracked in GitHub Issues under the **Cycle II Submission** milestone.
 
 ## License
 

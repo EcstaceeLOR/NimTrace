@@ -1,0 +1,18 @@
+{
+  "name": "@nimtrace/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "test:unit": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nimtrace/contracts": "*",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}
