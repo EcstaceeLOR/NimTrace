@@ -6,6 +6,7 @@ import { UPDATE_PASSPORT_OWNER_SQL } from './passports'
 const migration = [
   '0001_lifecycle_schema.sql',
   '0002_wallet_auth_invariants.sql',
+  '0003_product_issuance.sql',
 ].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 const hash = (character: string) => character.repeat(64)
 const address = (suffix: string) => `NQ00NIMTRACE${suffix.padStart(12, '0')}`
@@ -73,7 +74,8 @@ describe('D1 lifecycle migration', () => {
 
     expect(rows.map(({ name }) => name)).toEqual([
       'merchants', 'passport_events', 'passports', 'payment_intents', 'product_versions',
-      'products', 'repair_attestations', 'transfer_intents', 'wallet_challenges', 'wallet_sessions',
+      'products', 'proof_nonces', 'repair_attestations', 'transfer_intents', 'wallet_challenges',
+      'wallet_sessions',
     ])
   })
 
@@ -178,5 +180,33 @@ describe('D1 lifecycle migration', () => {
       'session-2', address('2'), 'challenge-atomic', hash('c'),
       '2026-09-15T12:00:00.000Z', createdAt, createdAt,
     )).toThrow(/challenge_unavailable/)
+  })
+
+  it('preserves signed versions and represents edits as the next version', () => {
+    seedProduct(database)
+    database.prepare(`
+      INSERT INTO product_versions (
+        product_id, version, canonical_payload, payload_hash, issuer_public_key, issuer_signature
+      ) VALUES (?, 2, ?, ?, ?, ?)
+    `).run(
+      'product-1',
+      '{"title":"Genesis Edition v2"}',
+      hash('z'),
+      'v'.repeat(64),
+      'w'.repeat(128),
+    )
+
+    const product = database.prepare(`
+      SELECT current_version FROM products WHERE id = 'product-1'
+    `).get() as { current_version: number }
+    const versions = database.prepare(`
+      SELECT version FROM product_versions WHERE product_id = 'product-1' ORDER BY version
+    `).all() as Array<{ version: number }>
+
+    expect(product.current_version).toBe(2)
+    expect(versions).toEqual([{ version: 1 }, { version: 2 }])
+    expect(() => database.prepare(`
+      UPDATE product_versions SET canonical_payload = '{}' WHERE product_id = 'product-1' AND version = 1
+    `).run()).toThrow(/product_versions_are_immutable/)
   })
 })

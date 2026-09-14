@@ -2,10 +2,14 @@ import { Hono } from 'hono'
 import {
   HealthResponseSchema,
   NimiqNetworkSchema,
+  ProductDraftSchema,
+  PublishProductRequestSchema,
   WalletChallengeRequestSchema,
   WalletSessionRequestSchema,
 } from '@nimtrace/contracts'
 import { AuthServiceError, createWalletSession, issueWalletChallenge } from './auth/service'
+import { SessionAuthenticationError, authenticatedWallet } from './auth/session'
+import { ProductServiceError, createPublishedProduct, issueProductProof } from './products/service'
 
 interface Bindings {
   APP_VERSION?: string
@@ -72,9 +76,47 @@ app.post('/api/auth/sessions', async (c) => {
   return c.json(session, 201, { 'Cache-Control': 'no-store' })
 })
 
+app.post('/api/products/issuance-challenges', async (c) => {
+  const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const payload = ProductDraftSchema.safeParse(await c.req.json().catch(() => null))
+  if (!payload.success) {
+    return c.json({ error: 'invalid_product', message: 'Check the product details and try again.' }, 400)
+  }
+
+  const challenge = await issueProductProof(
+    c.env.DB,
+    walletAddress,
+    payload.data,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  )
+  return c.json(challenge, 201, { 'Cache-Control': 'no-store' })
+})
+
+app.post('/api/products', async (c) => {
+  const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const payload = PublishProductRequestSchema.safeParse(await c.req.json().catch(() => null))
+  if (!payload.success) {
+    return c.json({ error: 'invalid_product_proof', message: 'The signed product is malformed.' }, 400)
+  }
+
+  const product = await createPublishedProduct(
+    c.env.DB,
+    walletAddress,
+    payload.data,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  )
+  return c.json(product, 201, { 'Cache-Control': 'no-store' })
+})
+
 app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 404))
 
 app.onError((error, c) => {
+  if (error instanceof SessionAuthenticationError) {
+    return c.json({ error: 'unauthorized', message: error.message, recoverable: true }, 401)
+  }
+  if (error instanceof ProductServiceError) {
+    return c.json({ error: error.code, message: error.message, recoverable: true }, error.status)
+  }
   if (error instanceof AuthServiceError) {
     return c.json({
       error: error.code,
