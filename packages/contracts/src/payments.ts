@@ -32,5 +32,16 @@ export const PurchaseIntentResponseSchema = z.object({
   transactionData: z.string().min(8).max(64),
 }).strict()
 
+export const PaymentSubmissionRequestSchema = z.object({
+  transactionHash: z.string().regex(/^[a-f0-9]{64}$/i),
+}).strict()
+
+export const PaymentSubmissionResponseSchema = z.object({
+  id: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/),
+  status: z.enum(['submitted', 'confirmed']),
+  transactionHash: z.string().regex(/^[a-f0-9]{64}$/i),
+}).strict()
+
 export type PaymentIntentStatus = z.infer<typeof PaymentIntentStatusSchema>
 export type PurchaseIntentResponse = z.infer<typeof PurchaseIntentResponseSchema>
+export type PaymentSubmissionResponse = z.infer<typeof PaymentSubmissionResponseSchema>

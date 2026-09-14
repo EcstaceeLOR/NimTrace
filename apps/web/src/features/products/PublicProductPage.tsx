@@ -7,6 +7,7 @@ import {
 } from '@nimtrace/contracts'
 import { formatNimFromLuna } from '../../lib/formatting/nim'
 import { createNimiqPayDeepLink } from '../../lib/nimiq/deepLink'
+import { ProductCheckout } from './ProductCheckout'
 
 interface PublicProductPageProps {
   productId: string
@@ -98,12 +99,12 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
           </dl>
           <div className="warranty-claim"><strong>Merchant warranty statement</strong><p>{product.warrantySummary}</p></div>
 
-          <div className="product-actions">
-            {purchasable ? <a className="button button--primary" href={deepLink}>Buy with NIM</a> : (
+          {purchasable ? <ProductCheckout product={product} publicUrl={publicUrl} /> : (
+            <div className="product-actions">
               <button className="button button--primary" type="button" disabled>Purchase unavailable</button>
-            )}
-            <a className="button button--secondary" href={deepLink}>Open in Nimiq Pay</a>
-          </div>
+              <a className="button button--secondary" href={deepLink}>Open in Nimiq Pay</a>
+            </div>
+          )}
           <p className="product-trust-note">Payment will go directly to the issuer. NimTrace does not provide escrow or independently inspect the physical item.</p>
         </article>
       </section>

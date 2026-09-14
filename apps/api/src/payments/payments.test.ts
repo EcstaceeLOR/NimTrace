@@ -3,6 +3,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import { KeyPair } from '@nimiq/core'
 import {
   ProductIssuanceChallengeResponseSchema,
+  PaymentSubmissionResponseSchema,
   PublishedProductResponseSchema,
   PurchaseIntentResponseSchema,
 } from '@nimtrace/contracts'
@@ -17,6 +18,7 @@ import {
   failPaymentIntent,
   submitPaymentIntent,
 } from './repository'
+import { recordPaymentSubmission } from './service'
 
 const migrations = [
   '0001_lifecycle_schema.sql',
@@ -187,6 +189,14 @@ describe('buyer-bound purchase intents', () => {
     }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
   }
 
+  function submitIntent(intentId: string, transactionHash: string, token = buyerToken) {
+    return app.request(`/api/payment-intents/${intentId}/submissions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionHash }),
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+  }
+
   it('derives and persists every payment value without client input', async () => {
     const productId = await publishProduct('BOUND-001')
     const response = await requestIntent(productId, 'purchase-attempt-0001')
@@ -267,6 +277,61 @@ describe('buyer-bound purchase intents', () => {
     )
     expect(competing.status).toBe(409)
     expect(await competing.json()).toMatchObject({ error: 'product_checkout_busy' })
+  })
+
+  it('records the submitted hash idempotently without claiming payment confirmation', async () => {
+    const productId = await publishProduct('SUBMISSION-001')
+    const intent = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(productId, 'purchase-attempt-0011')
+    ).json())
+    const transactionHash = 'a'.repeat(64)
+
+    const submitted = await submitIntent(intent.id, transactionHash)
+    expect(submitted.status).toBe(200)
+    expect(PaymentSubmissionResponseSchema.parse(await submitted.json())).toEqual({
+      id: intent.id,
+      status: 'submitted',
+      transactionHash,
+    })
+    expect(PaymentSubmissionResponseSchema.parse(await (
+      await submitIntent(intent.id, transactionHash)
+    ).json()).status).toBe('submitted')
+
+    const stored = database.prepare(`
+      SELECT status, transaction_hash, confirmed_at, confirmed_block_height
+      FROM payment_intents WHERE id = ?
+    `).get(intent.id) as Record<string, unknown>
+    expect(stored).toEqual({
+      status: 'submitted',
+      transaction_hash: transactionHash,
+      confirmed_at: null,
+      confirmed_block_height: null,
+    })
+
+    const conflicting = await submitIntent(intent.id, 'b'.repeat(64))
+    expect(conflicting.status).toBe(409)
+    expect(await conflicting.json()).toMatchObject({ error: 'transaction_hash_conflict' })
+
+    const hidden = await submitIntent(intent.id, transactionHash, otherBuyerToken)
+    expect(hidden.status).toBe(404)
+    expect(await hidden.json()).toMatchObject({ error: 'payment_intent_not_found' })
+  })
+
+  it('preserves a wallet-returned hash even when API delivery happens after display expiry', async () => {
+    const productId = await publishProduct('SUBMISSION-EXPIRED')
+    const intent = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(productId, 'purchase-attempt-0012')
+    ).json())
+
+    await expect(recordPaymentSubmission(
+      db,
+      intent.id,
+      buyerAddress,
+      'c'.repeat(64),
+      new Date(Date.parse(intent.expiresAt) + 1),
+    )).resolves.toMatchObject({ status: 'submitted', transactionHash: 'c'.repeat(64) })
+    expect((database.prepare('SELECT status FROM payment_intents WHERE id = ?').get(intent.id) as { status: string }).status)
+      .toBe('submitted')
   })
 
   it('enforces pending, submitted, confirmed, expired, and failed transitions', async () => {
