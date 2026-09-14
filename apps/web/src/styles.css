@@ -1,0 +1,79 @@
+:root {
+  color: #f8f8f6;
+  background: #090b10;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 80% 12%, rgba(58, 232, 194, 0.13), transparent 30rem),
+    radial-gradient(circle at 10% 80%, rgba(111, 82, 237, 0.12), transparent 35rem),
+    #090b10;
+}
+
+button, a { font: inherit; }
+button { cursor: pointer; }
+
+main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-top) 24px 56px; }
+
+.nav {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.brand { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -0.02em; }
+.brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: #07110f; background: #3ae8c2; font-weight: 900; }
+
+.status { display: inline-flex; align-items: center; gap: 8px; color: #a9b0bc; font-size: 0.78rem; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #77808d; box-shadow: 0 0 0 4px rgba(119, 128, 141, 0.1); }
+.status--online .status-dot { background: #3ae8c2; box-shadow: 0 0 0 4px rgba(58, 232, 194, 0.1); }
+.status--offline .status-dot { background: #ff7d72; }
+
+.hero { min-height: calc(100vh - 138px); display: grid; grid-template-columns: 1.04fr 0.96fr; gap: clamp(40px, 8vw, 104px); align-items: center; padding: 72px 0; }
+.eyebrow { color: #3ae8c2; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.18em; }
+.hero h1 { max-width: 700px; margin: 14px 0 22px; font-size: clamp(3.1rem, 7vw, 6.4rem); line-height: 0.94; letter-spacing: -0.065em; }
+.lede { max-width: 570px; color: #a9b0bc; font-size: clamp(1rem, 2vw, 1.23rem); line-height: 1.65; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.button { border: 0; border-radius: 12px; padding: 14px 19px; font-weight: 760; transition: transform 160ms ease, background 160ms ease; }
+.button:hover { transform: translateY(-2px); }
+.button:focus-visible { outline: 3px solid rgba(58, 232, 194, 0.55); outline-offset: 3px; }
+.button--primary { color: #07110f; background: #3ae8c2; }
+.button--secondary { color: #f8f8f6; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); }
+.foundation-note { margin-top: 18px; color: #727b89; font-size: 0.76rem; }
+
+.passport { position: relative; overflow: hidden; min-height: 530px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 28px; background: linear-gradient(145deg, rgba(24, 29, 39, 0.96), rgba(12, 15, 21, 0.97)); box-shadow: 0 42px 100px rgba(0, 0, 0, 0.38); }
+.passport-glow { position: absolute; inset: -30% auto auto -20%; width: 80%; aspect-ratio: 1; border-radius: 50%; background: rgba(58, 232, 194, 0.09); filter: blur(45px); }
+.passport-header { position: relative; display: flex; justify-content: space-between; padding: 24px; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.13em; }
+.verified, .active { color: #3ae8c2; }
+.product-art { min-height: 255px; display: grid; place-items: center; position: relative; }
+.product-orbit { position: absolute; width: 210px; height: 210px; border: 1px solid rgba(58, 232, 194, 0.23); border-radius: 50%; box-shadow: inset 0 0 70px rgba(58, 232, 194, 0.08), 0 0 50px rgba(58, 232, 194, 0.08); }
+.product-core { width: 108px; height: 108px; display: grid; place-items: center; border-radius: 30px; color: #07110f; background: linear-gradient(145deg, #83ffe5, #28cbaa); font-size: 3.4rem; font-weight: 950; transform: rotate(-8deg); box-shadow: 0 25px 60px rgba(58, 232, 194, 0.18); }
+.passport-body { position: relative; padding: 4px 24px 24px; }
+.passport-label { margin: 0; color: #7e8795; font-size: 0.62rem; letter-spacing: 0.14em; font-weight: 800; }
+.passport h2 { margin: 8px 0 22px; font-size: 1.8rem; letter-spacing: -0.04em; }
+.passport dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0; overflow: hidden; border-radius: 12px; background: rgba(255, 255, 255, 0.08); }
+.passport dl div { padding: 13px; background: #121720; }
+.passport dt { color: #717b88; font-size: 0.65rem; }
+.passport dd { margin: 5px 0 0; font-size: 0.78rem; font-weight: 720; }
+.error-state { min-height: 100vh; display: grid; align-content: center; justify-items: start; max-width: 620px; }
+
+@media (max-width: 800px) {
+  main { padding-inline: 18px; }
+  .hero { grid-template-columns: 1fr; padding-top: 50px; }
+  .hero h1 { font-size: clamp(3rem, 15vw, 4.8rem); }
+  .passport { min-height: 490px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
