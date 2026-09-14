@@ -80,3 +80,4 @@ export type AuthErrorResponse = z.infer<typeof AuthErrorResponseSchema>
 
 export * from './proofs'
 export * from './products'
+export * from './images'

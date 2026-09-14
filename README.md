@@ -50,6 +50,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Signed wallet authentication](docs/WALLET_AUTH.md)
 - [Canonical proof and signature format](docs/PROOF_FORMAT.md)
 - [Merchant product issuance](docs/PRODUCT_ISSUANCE.md)
+- [Safe product-image processing and R2 storage](docs/PRODUCT_IMAGES.md)
 
 ## Local development
 

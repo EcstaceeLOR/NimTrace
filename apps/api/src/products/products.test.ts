@@ -63,6 +63,7 @@ function databasePort(database: DatabaseSync): D1Database {
 describe('merchant product issuance API', () => {
   let database: DatabaseSync
   let db: D1Database
+  let images: R2Bucket
   let keyPair: KeyPair
   let walletAddress: string
   const token = 'merchant-session-token-with-enough-entropy-12345'
@@ -71,6 +72,11 @@ describe('merchant product issuance API', () => {
     database = new DatabaseSync(':memory:')
     database.exec(migrations)
     db = databasePort(database)
+    images = {
+      head: async (key: string) => ({
+        customMetadata: { contentHash: key.slice(key.lastIndexOf('/') + 1, -5) },
+      }),
+    } as unknown as R2Bucket
     keyPair = KeyPair.generate()
     const address = keyPair.toAddress()
     try {
@@ -99,20 +105,22 @@ describe('merchant product issuance API', () => {
   })
 
   async function requestChallenge() {
+    const imageHash = 'b'.repeat(64)
+    const walletPath = (await sha256Hex(walletAddress)).slice(0, 16)
     const response = await app.request('/api/products/issuance-challenges', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: 'Wireless headphones built for repairability.',
-        imageHash: 'b'.repeat(64),
-        imageKey: 'pending/b'.concat('b'.repeat(63)),
+        imageHash,
+        imageKey: `products/${walletPath}/random-image-path/${imageHash}.webp`,
         priceLuna: 100000,
         serialReference: 'DEMO-HEADPHONES-001',
         title: 'NimTrace Headphones',
         warrantyDurationDays: 730,
         warrantySummary: 'Covers manufacturing defects for two years.',
       }),
-    }, { DB: db, NIMIQ_NETWORK: 'main-albatross' })
+    }, { DB: db, NIMIQ_NETWORK: 'main-albatross', PRODUCT_IMAGES: images })
     expect(response.status).toBe(201)
     return ProductIssuanceChallengeResponseSchema.parse(await response.json())
   }
@@ -142,7 +150,7 @@ describe('merchant product issuance API', () => {
           signature: await sign(challenge, signer),
         },
       }),
-    }, { DB: db, NIMIQ_NETWORK: 'main-albatross' })
+    }, { DB: db, NIMIQ_NETWORK: 'main-albatross', PRODUCT_IMAGES: images })
   }
 
   it('publishes an immutable signed first version and consumes the nonce', async () => {

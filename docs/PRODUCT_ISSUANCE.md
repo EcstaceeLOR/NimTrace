@@ -20,10 +20,10 @@ the controlling wallet approved the product statement.
 6. A single D1 batch creates the merchant (when new), product, and immutable
    signed version. A trigger consumes the proof nonce in the same transaction.
 
-The UI exposes draft, preparing, review, signing, published, and failed states
-and collapses to one column on small screens. Image bytes are hashed in the
-client; the safe R2 processing and final-key exchange are completed by issue
-#7 before image-backed products are used in the public catalogue.
+The UI exposes draft, image-processing/upload progress, review, signing,
+published, and failed states and collapses to one column on small screens.
+Safe image processing stores the final content hash in the signed payload and
+uses a fixed demo fallback when R2 is unavailable.
 
 ## Version guarantees
 
