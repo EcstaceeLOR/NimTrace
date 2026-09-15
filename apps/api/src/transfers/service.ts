@@ -15,11 +15,15 @@ import {
 } from '@nimtrace/contracts'
 import { normalizeNimiqAddress, randomToken } from '../auth/crypto'
 import { findProofNonce, insertProofNonce } from '../products/repository'
+import { confirmPaymentIntent, findPaymentIntent } from '../payments/repository'
+import { verifyStoredPaymentIntent } from '../payments/verification'
+import type { NimiqRpcClient } from '../payments/rpc'
 import { verifySignedProof } from '../proofs/verifier'
 import {
   createCompletedTransfer,
   findTransferIntent,
   findTransferPassport,
+  recordAcceptedTransfer,
   transferEventSequence,
 } from './repository'
 
@@ -42,9 +46,11 @@ function response(intent: Awaited<ReturnType<typeof findTransferIntent>>): Trans
     fromAddress: intent.fromAddress,
     id: intent.id,
     passportId: intent.passportId,
-    priceLuna: 0,
+    paymentIntentId: intent.paymentIntentId,
+    priceLuna: intent.priceLuna,
     status: intent.status,
     toAddress: intent.toAddress,
+    transactionData: intent.transactionData,
     version: intent.passportVersion,
   })
 }
@@ -88,6 +94,7 @@ export async function createTransferOfferChallenge(
   ownerAddress: string,
   recipientAddress: string,
   network: NimiqNetwork,
+  priceLuna = 0,
   now = new Date(),
 ) {
   const passport = await findTransferPassport(db, passportId)
@@ -103,7 +110,7 @@ export async function createTransferOfferChallenge(
     expiresAt: new Date(now.getTime() + TRANSFER_TTL_MS).toISOString(),
     nonce: intentId,
     passportId,
-    priceLuna: 0,
+    priceLuna,
     recipientAddress: recipient,
     version: passport.version,
   })
@@ -134,16 +141,30 @@ export async function submitTransferOffer(
   })
   if (!verification.ok || nonce.payload_hash !== proof.envelope.payloadHash) return fail('invalid_offer_signature', 'The owner signature could not be verified.', 400)
   try {
-    await db.prepare(`
+    const paymentIntentId = payload.data.priceLuna > 0 ? randomToken(18) : null
+    const transactionData = paymentIntentId ? `NTR2:${paymentIntentId}` : null
+    const statements = []
+    if (paymentIntentId) statements.push(db.prepare(`
+      INSERT INTO payment_intents (
+        id, purpose, product_id, passport_id, product_version, seller_address, buyer_address,
+        amount_luna, network, transaction_data, expires_at, status, created_at, updated_at
+      ) VALUES (?, 'resale', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+    `).bind(
+      paymentIntentId, passport.productId, passportId, passport.productVersion,
+      ownerAddress, payload.data.recipientAddress, payload.data.priceLuna, network,
+      transactionData, payload.data.expiresAt, now.toISOString(), now.toISOString(),
+    ))
+    statements.push(db.prepare(`
       INSERT INTO transfer_intents (
         id, passport_id, from_address, to_address, price_luna, expires_at,
-        owner_offer_signature, owner_offer_public_key, passport_version, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 'pending_recipient', ?, ?)
+        owner_offer_signature, owner_offer_public_key, passport_version, payment_intent_id, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_recipient', ?, ?)
     `).bind(
       proof.envelope.nonce, passportId, ownerAddress, payload.data.recipientAddress,
-      payload.data.expiresAt, proof.signature, proof.publicKey, payload.data.version,
-      now.toISOString(), now.toISOString(),
-    ).run()
+      payload.data.priceLuna, payload.data.expiresAt, proof.signature, proof.publicKey,
+      payload.data.version, paymentIntentId, now.toISOString(), now.toISOString(),
+    ))
+    await db.batch(statements)
   } catch (error) {
     if (error instanceof Error && /one_active_per_passport|UNIQUE/i.test(error.message)) return fail('transfer_in_progress', 'This passport already has an active transfer offer.', 409)
     throw error
@@ -170,7 +191,7 @@ export async function createAcceptanceChallenge(
     expiresAt: intent.expiresAt,
     nonce: intent.id,
     passportId: intent.passportId,
-    priceLuna: 0,
+    priceLuna: intent.priceLuna,
     recipientAddress: intent.toAddress,
     version: intent.passportVersion,
   })
@@ -205,6 +226,14 @@ export async function acceptTransfer(
     now, previousEventHash: passport.headEventHash, signerAddress: recipientAddress,
   })
   if (!verification.ok || nonce.payload_hash !== proof.envelope.payloadHash) return fail('invalid_acceptance_signature', 'The recipient signature could not be verified.', 400)
+  const accepted = await recordAcceptedTransfer(db, {
+    intentId,
+    publicKey: proof.publicKey,
+    signature: proof.signature,
+    updatedAt: now.toISOString(),
+  })
+  if (!accepted) return fail('transfer_conflict', 'The transfer changed before acceptance was saved.', 409)
+  if (intent.priceLuna > 0) return response(await findTransferIntent(db, intentId))
   const sequence = await transferEventSequence(db, intent.passportId)
   const eventId = randomToken(18)
   const eventPayload = {
@@ -247,4 +276,62 @@ export async function acceptTransfer(
 
 export async function getTransferIntent(db: D1Database, id: string): Promise<TransferIntentResponse> {
   return response(await findTransferIntent(db, id))
+}
+
+export async function completePaidTransfer(
+  db: D1Database,
+  intentId: string,
+  recipientAddress: string,
+  rpc: Pick<NimiqRpcClient, 'getTransaction'>,
+  now = new Date(),
+) {
+  const intent = await findTransferIntent(db, intentId)
+  if (!intent || intent.toAddress !== recipientAddress) return fail('transfer_not_found', 'Transfer offer not found.', 404)
+  if (intent.status !== 'accepted' || !intent.paymentIntentId) return fail('payment_not_ready', 'Recipient acceptance must be recorded before payment completion.', 409)
+  const payment = await findPaymentIntent(db, intent.paymentIntentId)
+  if (!payment) return fail('payment_not_found', 'Resale payment intent not found.', 409)
+  const verification = await verifyStoredPaymentIntent(payment, rpc, now)
+  if (verification.state !== 'verified') return fail(`payment_${verification.state}`, `Payment is not final yet (${verification.reason}).`, 409)
+  if (payment.intent.status === 'submitted' && verification.blockHeight !== null && verification.chainTimestamp) {
+    await confirmPaymentIntent(db, payment.intent.id, payment.transactionHash!, verification.blockHeight, verification.chainTimestamp)
+  }
+  const passport = await findTransferPassport(db, intent.passportId)
+  if (!passport || passport.currentOwnerAddress !== intent.fromAddress || passport.version !== intent.passportVersion) return fail('stale_owner', 'The passport owner changed before payment completion.', 409)
+  const sequence = await transferEventSequence(db, intent.passportId)
+  const eventId = randomToken(18)
+  const eventPayload = {
+    eventType: 'transferred',
+    expiresAt: intent.expiresAt,
+    fromAddress: intent.fromAddress,
+    passportId: intent.passportId,
+    priceLuna: intent.priceLuna,
+    toAddress: intent.toAddress,
+    transferIntentId: intent.id,
+    version: intent.passportVersion,
+  }
+  const canonical = canonicalPayload(eventPayload)
+  const payloadHash = await sha256Hex(canonical)
+  const eventHash = await sha256Hex(canonicalJson({
+    passportId: intent.passportId,
+    payloadHash,
+    previousEventHash: passport.headEventHash,
+    sequence,
+    type: 'transferred',
+    version: 1,
+  }))
+  await createCompletedTransfer(db, {
+    actorAddress: intent.toAddress,
+    actorPublicKey: intent.recipientAcceptancePublicKey!,
+    actorSignature: intent.recipientAcceptanceSignature!,
+    canonicalPayload: canonical,
+    createdAt: now.toISOString(),
+    eventHash,
+    eventId,
+    payloadHash,
+    passportId: intent.passportId,
+    previousEventHash: passport.headEventHash,
+    sequence,
+    transferId: intent.id,
+  })
+  return response(await findTransferIntent(db, intentId))
 }

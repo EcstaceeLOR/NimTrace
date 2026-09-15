@@ -59,7 +59,7 @@ export const TransferOfferPayloadSchema = z.object({
   expiresAt: z.iso.datetime(),
   nonce: z.string().min(16).max(128),
   passportId: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/),
-  priceLuna: z.literal(0),
+  priceLuna: z.number().int().nonnegative().safe(),
   recipientAddress: z.string().min(8).max(64),
   version: z.number().int().positive().safe(),
 }).strict()
@@ -71,8 +71,10 @@ export const TransferIntentResponseSchema = z.object({
   fromAddress: z.string().min(8).max(64),
   id: z.string().min(16).max(128),
   passportId: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/),
-  priceLuna: z.literal(0),
-  status: z.enum(['pending_recipient', 'completed', 'expired', 'cancelled', 'failed']),
+  priceLuna: z.number().int().nonnegative().safe(),
+  status: z.enum(['pending_recipient', 'accepted', 'completed', 'expired', 'cancelled', 'failed']),
+  paymentIntentId: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/).nullable(),
+  transactionData: z.string().min(8).max(64).nullable(),
   toAddress: z.string().min(8).max(64),
   version: z.number().int().positive().safe(),
 }).strict()
@@ -89,6 +91,7 @@ export const TransferProofChallengeResponseSchema = z.object({
 export type TransferProofChallengeResponse = z.infer<typeof TransferProofChallengeResponseSchema>
 
 export const TransferRecipientRequestSchema = z.object({
+  priceLuna: z.number().int().nonnegative().safe().default(0),
   recipientAddress: z.string().trim().min(8).max(64),
 }).strict()
 

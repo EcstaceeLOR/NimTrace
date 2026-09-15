@@ -56,6 +56,26 @@ export function TransferAcceptance({ fetcher = fetch, intentId }: { fetcher?: ty
         body: JSON.stringify({ proof: { envelope: challenge.envelope, payload: challenge.payload, ...signed.value } }),
       })
       if (!response.ok) throw new Error((await response.json().catch(() => null) as { message?: string } | null)?.message ?? 'Acceptance was rejected.')
+      const accepted = TransferIntentResponseSchema.parse(await response.json())
+      if (accepted.priceLuna > 0) {
+        if (!accepted.paymentIntentId || !accepted.transactionData) throw new Error('The resale payment intent is incomplete.')
+        setMessage('Acceptance signed. Approve the direct payment to the current owner; NimTrace never holds or reverses it.')
+        const payment = await nimiqPayWallet.pay({
+          recipient: accepted.fromAddress,
+          valueLuna: accepted.priceLuna,
+          data: accepted.transactionData,
+        })
+        if (payment.status !== 'success') throw new Error(payment.status === 'cancelled' ? 'Payment cancelled. Ownership did not change.' : payment.error.message)
+        const submission = await fetcher(`/api/payment-intents/${encodeURIComponent(accepted.paymentIntentId)}/submissions`, {
+          method: 'POST', headers: { Authorization: `Bearer ${session.sessionToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactionHash: payment.value.transactionHash }),
+        })
+        if (!submission.ok) throw new Error('The payment was sent but could not be linked. Keep the transaction hash and retry reconciliation.')
+        const completion = await fetcher(`/api/transfer-intents/${encodeURIComponent(accepted.id)}/complete-payment`, {
+          method: 'POST', headers: { Authorization: `Bearer ${session.sessionToken}` },
+        })
+        if (!completion.ok) throw new Error('Payment submitted. Ownership will update after independent network finality.')
+      }
       setState('done')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Acceptance failed.')

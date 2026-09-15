@@ -36,6 +36,7 @@ import { PublicPassportError, getPublicPassportVerification } from './passports/
 import {
   TransferServiceError,
   acceptTransfer,
+  completePaidTransfer,
   createAcceptanceChallenge,
   createTransferOfferChallenge,
   getTransferIntent,
@@ -303,6 +304,7 @@ app.post('/api/passports/:passportId/transfer-intents', async (c) => {
     ownerAddress,
     payload.data.recipientAddress,
     network,
+    payload.data.priceLuna,
   ), 201, { 'Cache-Control': 'no-store' })
 })
 
@@ -351,6 +353,17 @@ app.post('/api/transfer-intents/:intentId/accept', async (c) => {
     recipientAddress,
     payload.data.proof,
     networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  ), 200, { 'Cache-Control': 'no-store' })
+})
+
+app.post('/api/transfer-intents/:intentId/complete-payment', async (c) => {
+  const recipientAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const network = networkFromEnvironment(c.env.NIMIQ_NETWORK)
+  return c.json(await completePaidTransfer(
+    c.env.DB,
+    c.req.param('intentId'),
+    recipientAddress,
+    paymentRpc(c.env, network),
   ), 200, { 'Cache-Control': 'no-store' })
 })
 
