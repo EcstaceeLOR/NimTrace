@@ -8,6 +8,8 @@ import {
   ProductDraftSchema,
   PurchaseIntentRequestSchema,
   PublishProductRequestSchema,
+  TransferProofRequestSchema,
+  TransferRecipientRequestSchema,
   WalletChallengeRequestSchema,
   WalletSessionRequestSchema,
 } from '@nimtrace/contracts'
@@ -31,6 +33,15 @@ import {
   listWalletPassports,
 } from './passports/service'
 import { PublicPassportError, getPublicPassportVerification } from './passports/public'
+import {
+  TransferServiceError,
+  acceptTransfer,
+  createAcceptanceChallenge,
+  createTransferOfferChallenge,
+  getTransferIntent,
+  submitTransferOffer,
+} from './transfers/service'
+import { findTransferIntent } from './transfers/repository'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -281,6 +292,68 @@ app.get('/api/passports/:passportId/verification', async (c) => {
   })
 })
 
+app.post('/api/passports/:passportId/transfer-intents', async (c) => {
+  const ownerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const payload = TransferRecipientRequestSchema.safeParse(await c.req.json().catch(() => null))
+  if (!payload.success) return c.json({ error: 'invalid_recipient', message: 'A valid recipient wallet address is required.' }, 400)
+  const network = networkFromEnvironment(c.env.NIMIQ_NETWORK)
+  return c.json(await createTransferOfferChallenge(
+    c.env.DB,
+    c.req.param('passportId'),
+    ownerAddress,
+    payload.data.recipientAddress,
+    network,
+  ), 201, { 'Cache-Control': 'no-store' })
+})
+
+app.post('/api/passports/:passportId/transfer-intents/:intentId/offer', async (c) => {
+  const ownerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const payload = TransferProofRequestSchema.safeParse(await c.req.json().catch(() => null))
+  if (!payload.success) return c.json({ error: 'invalid_offer', message: 'A signed transfer offer is required.' }, 400)
+  if (payload.data.proof.envelope.nonce !== c.req.param('intentId')) {
+    return c.json({ error: 'invalid_offer', message: 'The signed offer does not match this transfer intent.' }, 400)
+  }
+  return c.json(await submitTransferOffer(
+    c.env.DB,
+    c.req.param('passportId'),
+    ownerAddress,
+    payload.data.proof,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  ), 201, { 'Cache-Control': 'no-store' })
+})
+
+app.get('/api/transfer-intents/:intentId', async (c) => {
+  const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const intent = await findTransferIntent(c.env.DB, c.req.param('intentId'))
+  if (!intent || (intent.fromAddress !== walletAddress && intent.toAddress !== walletAddress)) {
+    return c.json({ error: 'transfer_not_found', message: 'Transfer offer not found.' }, 404)
+  }
+  return c.json(await getTransferIntent(c.env.DB, intent.id), 200, { 'Cache-Control': 'no-store' })
+})
+
+app.post('/api/transfer-intents/:intentId/acceptance-challenges', async (c) => {
+  const recipientAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  return c.json(await createAcceptanceChallenge(
+    c.env.DB,
+    c.req.param('intentId'),
+    recipientAddress,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  ), 201, { 'Cache-Control': 'no-store' })
+})
+
+app.post('/api/transfer-intents/:intentId/accept', async (c) => {
+  const recipientAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const payload = TransferProofRequestSchema.safeParse(await c.req.json().catch(() => null))
+  if (!payload.success) return c.json({ error: 'invalid_acceptance', message: 'A signed transfer acceptance is required.' }, 400)
+  return c.json(await acceptTransfer(
+    c.env.DB,
+    c.req.param('intentId'),
+    recipientAddress,
+    payload.data.proof,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+  ), 200, { 'Cache-Control': 'no-store' })
+})
+
 app.get('/api/products/:productId', async (c) => {
   const versionValue = c.req.query('version')
   const version = versionValue === undefined ? undefined : Number(versionValue)
@@ -347,6 +420,9 @@ app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 4
 app.onError((error, c) => {
   if (error instanceof PublicPassportError) {
     return c.json({ error: 'passport_not_found', message: error.message }, 404)
+  }
+  if (error instanceof TransferServiceError) {
+    return c.json({ error: error.code, message: error.message, recoverable: error.status !== 410 }, error.status)
   }
   if (error instanceof PassportCollectionError) {
     return c.json({ error: 'passport_not_found', message: error.message }, 404)

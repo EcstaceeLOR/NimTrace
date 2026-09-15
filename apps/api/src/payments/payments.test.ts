@@ -12,6 +12,8 @@ import {
   PaymentVerificationResponseSchema,
   PublishedProductResponseSchema,
   PurchaseIntentResponseSchema,
+  TransferIntentResponseSchema,
+  TransferProofChallengeResponseSchema,
 } from '@nimtrace/contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { app } from '../index'
@@ -34,6 +36,7 @@ const migrations = [
   '0003_product_issuance.sql',
   '0004_purchase_intents.sql',
   '0005_passport_issuance.sql',
+  '0006_gift_transfers.sql',
 ].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 
 class TestStatement {
@@ -546,6 +549,64 @@ describe('buyer-bound purchase intents', () => {
       purchase: { reason: 'provider_unavailable', state: 'partial' },
     })
     expect(partialPassport.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+
+    const offerChallenge = TransferProofChallengeResponseSchema.parse(await (
+      await app.request(`/api/passports/${passport.id}/transfer-intents`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${buyerToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientAddress: otherBuyerAddress }),
+      }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    ).json())
+    const ownerOfferSignature = buyerKey.sign(await nimiqSignedMessageDigest(offerChallenge.message))
+    const ownerOffer = await app.request(
+      `/api/passports/${passport.id}/transfer-intents/${offerChallenge.intentId}/offer`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${buyerToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof: {
+          envelope: offerChallenge.envelope,
+          payload: offerChallenge.payload,
+          publicKey: buyerKey.publicKey.toHex(),
+          signature: ownerOfferSignature.toHex(),
+        } }),
+      },
+      { DB: db, NIMIQ_NETWORK: 'test-albatross' },
+    )
+    ownerOfferSignature.free()
+    expect(ownerOffer.status).toBe(201)
+    const transferIntent = TransferIntentResponseSchema.parse(await ownerOffer.json())
+    const acceptanceChallenge = TransferProofChallengeResponseSchema.parse(await (
+      await app.request(`/api/transfer-intents/${transferIntent.id}/acceptance-challenges`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${otherBuyerToken}` },
+      }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    ).json())
+    const recipientAcceptanceSignature = otherBuyerKey.sign(await nimiqSignedMessageDigest(acceptanceChallenge.message))
+    const accepted = await app.request(`/api/transfer-intents/${transferIntent.id}/accept`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherBuyerToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proof: {
+        envelope: acceptanceChallenge.envelope,
+        payload: acceptanceChallenge.payload,
+        publicKey: otherBuyerKey.publicKey.toHex(),
+        signature: recipientAcceptanceSignature.toHex(),
+      } }),
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    recipientAcceptanceSignature.free()
+    expect(accepted.status).toBe(200)
+    expect(TransferIntentResponseSchema.parse(await accepted.json())).toMatchObject({ id: transferIntent.id, status: 'completed' })
+    const replayedAcceptance = await app.request(`/api/transfer-intents/${transferIntent.id}/accept`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherBuyerToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proof: { envelope: acceptanceChallenge.envelope, payload: acceptanceChallenge.payload, publicKey: otherBuyerKey.publicKey.toHex(), signature: 'a'.repeat(128) } }),
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    expect(replayedAcceptance.status).toBe(409)
+    expect(database.prepare('SELECT current_owner_address FROM passports WHERE id = ?').get(passport.id)).toEqual({ current_owner_address: otherBuyerAddress })
+    expect(database.prepare('SELECT type, actor_address FROM passport_events WHERE passport_id = ? ORDER BY sequence').all(passport.id)).toHaveLength(2)
+    const formerAfterTransfer = PassportDetailSchema.parse(await (await app.request(`/api/passports/${passport.id}`, {
+      headers: { Authorization: `Bearer ${buyerToken}` },
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })).json())
+    expect(formerAfterTransfer).toMatchObject({ ownership: 'former', ownerActions: [] })
 
     database.prepare(`
       UPDATE passports SET current_owner_address = ?, version = version + 1, updated_at = ?

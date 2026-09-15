@@ -3,10 +3,13 @@ import QRCode from 'qrcode'
 import {
   PassportCollectionResponseSchema,
   PassportDetailSchema,
+  TransferIntentResponseSchema,
+  TransferProofChallengeResponseSchema,
   type PassportCollectionResponse,
   type PassportDetail,
   type PassportSummary,
 } from '@nimtrace/contracts'
+import { nimiqPayWallet } from '../../lib/nimiq/wallet'
 
 interface PassportCollectionProps {
   address: string
@@ -67,8 +70,12 @@ function PassportCard({ passport, onOpen }: { passport: PassportSummary; onOpen:
   )
 }
 
-function PassportDetailView({ passport, onClose }: { passport: PassportDetail; onClose: () => void }) {
+function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetcher: typeof fetch; passport: PassportDetail; onClose: () => void; sessionToken: string }) {
   const [qrCode, setQrCode] = useState<string>()
+  const [recipient, setRecipient] = useState('')
+  const [transferState, setTransferState] = useState<'closed' | 'form' | 'signing' | 'success' | 'error'>('closed')
+  const [transferMessage, setTransferMessage] = useState('')
+  const [transferId, setTransferId] = useState('')
 
   useEffect(() => {
     let active = true
@@ -80,6 +87,31 @@ function PassportDetailView({ passport, onClose }: { passport: PassportDetail; o
     }).then((value) => { if (active) setQrCode(value) })
     return () => { active = false }
   }, [passport.publicUrl])
+
+  async function createTransferOffer() {
+    setTransferState('signing')
+    try {
+      const challengeResponse = await fetcher(`/api/passports/${encodeURIComponent(passport.id)}/transfer-intents`, {
+        method: 'POST', headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipientAddress: recipient }),
+      })
+      if (!challengeResponse.ok) throw new Error('The transfer offer could not be prepared.')
+      const challenge = TransferProofChallengeResponseSchema.parse(await challengeResponse.json())
+      const signed = await nimiqPayWallet.sign(challenge.message)
+      if (signed.status !== 'success') throw new Error(signed.status === 'cancelled' ? 'Signature cancelled. Nothing changed.' : signed.error.message)
+      const offerResponse = await fetcher(`/api/passports/${encodeURIComponent(passport.id)}/transfer-intents/${encodeURIComponent(challenge.intentId)}/offer`, {
+        method: 'POST', headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof: { envelope: challenge.envelope, payload: challenge.payload, ...signed.value } }),
+      })
+      if (!offerResponse.ok) throw new Error((await offerResponse.json().catch(() => null) as { message?: string } | null)?.message ?? 'The transfer offer was rejected.')
+      const intent = TransferIntentResponseSchema.parse(await offerResponse.json())
+      setTransferId(intent.id)
+      setTransferState('success')
+    } catch (error) {
+      setTransferMessage(error instanceof Error ? error.message : 'The transfer offer failed.')
+      setTransferState('error')
+    }
+  }
 
   return (
     <section className="passport-detail" aria-labelledby="passport-detail-title">
@@ -138,10 +170,21 @@ function PassportDetailView({ passport, onClose }: { passport: PassportDetail; o
 
       {passport.ownerActions.length > 0 && (
         <div className="passport-owner-actions">
-          {passport.ownerActions.includes('transfer') && <button className="button button--primary" type="button">Transfer passport</button>}
+          {passport.ownerActions.includes('transfer') && <button className="button button--primary" type="button" onClick={() => setTransferState('form')}>Transfer passport</button>}
           {passport.ownerActions.includes('present_warranty') && <button className="button button--secondary" type="button">Present warranty</button>}
         </div>
       )}
+      {transferState === 'form' && (
+        <div className="transfer-panel" role="dialog" aria-labelledby="transfer-title">
+          <p className="eyebrow">RECIPIENT-BOUND GIFT</p><h2 id="transfer-title">Gift this passport</h2>
+          <p>The recipient wallet will need to review the complete passport and sign acceptance. No NIM moves.</p>
+          <label>Recipient wallet address<input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="NQ…" autoComplete="off" /></label>
+          <div className="passport-owner-actions"><button className="button button--primary" type="button" disabled={!recipient.trim()} onClick={() => void createTransferOffer()}>Review and sign offer</button><button className="button button--secondary" type="button" onClick={() => setTransferState('closed')}>Cancel</button></div>
+        </div>
+      )}
+      {transferState === 'signing' && <p className="passport-history-notice" role="status">Waiting for your wallet signature…</p>}
+      {transferState === 'error' && <p className="passport-history-notice" role="alert">{transferMessage}</p>}
+      {transferState === 'success' && <p className="transfer-success" role="status">Gift offer created. Share transfer ID <code>{transferId}</code> with the recipient wallet; it expires with the signed offer.</p>}
     </section>
   )
 }
@@ -192,7 +235,7 @@ export function PassportCollection({
     }
   }
 
-  if (detail.status === 'ready') return <PassportDetailView passport={detail.passport} onClose={() => setDetail({ status: 'closed' })} />
+  if (detail.status === 'ready') return <PassportDetailView fetcher={fetcher} passport={detail.passport} sessionToken={sessionToken} onClose={() => setDetail({ status: 'closed' })} />
   if (detail.status === 'loading') return <section className="passport-collection-state" role="status"><div className="passport-skeleton" /><p>Opening verified passport…</p></section>
   if (detail.status === 'error') return <section className="passport-collection-state" role="alert"><h1>Passport unavailable</h1><p>{detail.message}</p><button className="button button--secondary" onClick={() => setDetail({ status: 'closed' })}>Back to collection</button></section>
 

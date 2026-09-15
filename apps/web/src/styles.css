@@ -258,6 +258,25 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .passport-timeline li p, .passport-timeline li code { color: var(--muted); font-size: 0.78rem; }
 .passport-timeline li strong { text-transform: capitalize; }
 .passport-owner-actions { display: flex; gap: 0.75rem; margin-top: 2rem; }
+.transfer-panel { display: grid; gap: 0.8rem; margin-top: 2rem; padding: 1.25rem; border: 1px solid rgba(58, 232, 194, 0.35); border-radius: 18px; background: rgba(58, 232, 194, 0.06); }
+.transfer-panel h2 { margin: 0; }
+.transfer-panel > p:not(.eyebrow) { color: var(--muted); line-height: 1.5; }
+.transfer-panel label { display: grid; gap: 0.45rem; color: var(--muted); font-size: 0.85rem; }
+.transfer-panel input { width: 100%; padding: 0.85rem; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: rgba(255,255,255,0.06); font: inherit; }
+.transfer-success { margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(58, 232, 194, 0.35); border-radius: 12px; color: #75f0d5; line-height: 1.5; }
+.transfer-success code { overflow-wrap: anywhere; color: var(--text); }
+.transfer-acceptance { width: min(860px, 100%); }
+.transfer-acceptance > .nav > span { color: var(--muted); font-size: 0.78rem; }
+.transfer-acceptance__card { max-width: 700px; margin: clamp(4rem, 12vw, 9rem) auto; padding: clamp(1.4rem, 5vw, 3rem); border: 1px solid var(--line); border-radius: 26px; background: rgba(255,255,255,0.035); }
+.transfer-acceptance__card h1 { margin: 0.5rem 0 1rem; font-size: clamp(2.4rem, 7vw, 5rem); line-height: 0.98; letter-spacing: -0.06em; }
+.transfer-acceptance__card > p:not(.eyebrow) { color: var(--muted); line-height: 1.6; }
+.transfer-review { display: grid; gap: 1rem; margin-top: 2rem; padding: 1.25rem; border: 1px solid rgba(58,232,194,0.35); border-radius: 16px; background: rgba(58,232,194,0.06); }
+.transfer-review h2 { margin: 0; }
+.transfer-review > p { margin: 0; color: var(--muted); }
+.transfer-review dl { display: grid; gap: 0.6rem; margin: 0; }
+.transfer-review dl div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
+.transfer-review dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-family: ui-monospace, monospace; font-size: 0.78rem; }
+.transfer-error { margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(255,157,157,0.4); border-radius: 12px; color: #ffb0b0; }
 
 @media (max-width: 720px) {
   .passport-collection__header { align-items: flex-start; flex-direction: column; }
