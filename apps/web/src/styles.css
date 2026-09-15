@@ -277,6 +277,18 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .transfer-review dl div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
 .transfer-review dd { margin: 0; overflow-wrap: anywhere; text-align: right; font-family: ui-monospace, monospace; font-size: 0.78rem; }
 .transfer-error { margin-top: 1.5rem; padding: 1rem; border: 1px solid rgba(255,157,157,0.4); border-radius: 12px; color: #ffb0b0; }
+.presentation-panel { display: grid; justify-items: start; gap: 0.65rem; margin-top: 1.5rem; padding: 1.25rem; border: 1px dashed rgba(184,160,255,0.5); border-radius: 18px; background: rgba(111,82,237,0.08); }
+.presentation-panel h2 { margin: 0; }
+.presentation-panel p:not(.eyebrow) { max-width: 54ch; color: var(--muted); line-height: 1.5; }
+.presentation-panel img { width: min(220px, 55vw); border-radius: 12px; }
+.merchant-presentation { width: min(900px, 100%); }
+.merchant-presentation > .nav > span { color: var(--muted); font-size: 0.78rem; }
+.merchant-presentation__card { margin: clamp(3rem, 10vw, 7rem) auto; padding: clamp(1.25rem, 5vw, 3rem); border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,0.035); }
+.merchant-presentation__card h1 { margin: 0.4rem 0 1rem; font-size: clamp(2.5rem, 7vw, 5rem); letter-spacing: -0.06em; }
+.merchant-presentation__notice { padding: 0.9rem; border: 1px dashed rgba(255,199,102,0.45); border-radius: 12px; color: #ffd18a; line-height: 1.5; }
+.merchant-presentation__card dl { display: grid; gap: 0.7rem; margin: 2rem 0; }
+.merchant-presentation__card dl div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); }
+.merchant-presentation__card dd { max-width: 65%; margin: 0; overflow-wrap: anywhere; text-align: right; font-family: ui-monospace, monospace; font-size: 0.8rem; }
 
 @media (max-width: 720px) {
   .passport-collection__header { align-items: flex-start; flex-direction: column; }

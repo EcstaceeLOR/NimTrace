@@ -33,6 +33,7 @@ import {
   listWalletPassports,
 } from './passports/service'
 import { PublicPassportError, getPublicPassportVerification } from './passports/public'
+import { createWarrantyPresentation, getWarrantyPresentation } from './passports/presentation'
 import {
   TransferServiceError,
   acceptTransfer,
@@ -291,6 +292,27 @@ app.get('/api/passports/:passportId/verification', async (c) => {
   return c.json(verification, 200, {
     'Cache-Control': 'public, max-age=15, stale-while-revalidate=60',
   })
+})
+
+app.post('/api/passports/:passportId/presentations', async (c) => {
+  const ownerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  return c.json(await createWarrantyPresentation(
+    c.env.DB,
+    c.req.param('passportId'),
+    ownerAddress,
+    new URL(c.req.url).origin,
+  ), 201, { 'Cache-Control': 'no-store' })
+})
+
+app.get('/api/presentations/:token', async (c) => {
+  const network = networkFromEnvironment(c.env.NIMIQ_NETWORK)
+  return c.json(await getWarrantyPresentation(
+    c.env.DB,
+    c.req.param('token'),
+    network,
+    publicPassportRpc(c.env, network),
+    new URL(c.req.url).origin,
+  ), 200, { 'Cache-Control': 'no-store' })
 })
 
 app.post('/api/passports/:passportId/transfer-intents', async (c) => {

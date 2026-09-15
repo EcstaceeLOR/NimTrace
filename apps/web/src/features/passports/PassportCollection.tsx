@@ -5,6 +5,7 @@ import {
   PassportDetailSchema,
   TransferIntentResponseSchema,
   TransferProofChallengeResponseSchema,
+  WarrantyPresentationResponseSchema,
   type PassportCollectionResponse,
   type PassportDetail,
   type PassportSummary,
@@ -77,6 +78,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
   const [transferState, setTransferState] = useState<'closed' | 'form' | 'signing' | 'success' | 'error'>('closed')
   const [transferMessage, setTransferMessage] = useState('')
   const [transferId, setTransferId] = useState('')
+  const [presentation, setPresentation] = useState<{ url: string; expiresAt: string }>()
 
   useEffect(() => {
     let active = true
@@ -110,6 +112,22 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
       setTransferState('success')
     } catch (error) {
       setTransferMessage(error instanceof Error ? error.message : 'The transfer offer failed.')
+      setTransferState('error')
+    }
+  }
+
+  async function createPresentation() {
+    try {
+      const response = await fetcher(`/api/passports/${encodeURIComponent(passport.id)}/presentations`, {
+        method: 'POST', headers: { Authorization: `Bearer ${sessionToken}` },
+      })
+      if (!response.ok) throw new Error('The presentation could not be created.')
+      const value = WarrantyPresentationResponseSchema.parse(await response.json())
+      setPresentation(value)
+      const qr = await QRCode.toDataURL(value.url, { color: { dark: '#090b10', light: '#ffffff' }, errorCorrectionLevel: 'H', margin: 4, width: 512 })
+      setQrCode(qr)
+    } catch (error) {
+      setTransferMessage(error instanceof Error ? error.message : 'The presentation could not be created.')
       setTransferState('error')
     }
   }
@@ -172,7 +190,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
       {passport.ownerActions.length > 0 && (
         <div className="passport-owner-actions">
           {passport.ownerActions.includes('transfer') && <button className="button button--primary" type="button" onClick={() => setTransferState('form')}>Transfer passport</button>}
-          {passport.ownerActions.includes('present_warranty') && <button className="button button--secondary" type="button">Present warranty</button>}
+          {passport.ownerActions.includes('present_warranty') && <button className="button button--secondary" type="button" onClick={() => void createPresentation()}>Present warranty</button>}
         </div>
       )}
       {transferState === 'form' && (
@@ -187,6 +205,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
       {transferState === 'signing' && <p className="passport-history-notice" role="status">Waiting for your wallet signature…</p>}
       {transferState === 'error' && <p className="passport-history-notice" role="alert">{transferMessage}</p>}
       {transferState === 'success' && <p className="transfer-success" role="status">Gift offer created. Share transfer ID <code>{transferId}</code> with the recipient wallet; it expires with the signed offer.</p>}
+      {presentation && <div className="presentation-panel" role="status"><p className="eyebrow">SHORT-LIVED MERCHANT PRESENTATION</p><h2>Show this QR at service</h2><p>This is a read-only evidence presentation, not a warranty claim, legal entitlement, or acceptance of service.</p>{qrCode && <img src={qrCode} alt="Short-lived merchant warranty presentation QR code" />}<small>Expires {dateLabel(presentation.expiresAt)}</small></div>}
     </section>
   )
 }
