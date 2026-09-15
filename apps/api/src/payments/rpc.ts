@@ -17,6 +17,7 @@ export type TransactionHistoryLookupResult =
   | { status: 'invalid' }
 
 interface RpcClientOptions {
+  attemptsPerProvider?: number
   fallbackUrl?: string
   fetcher?: typeof fetch
   primaryUrl?: string
@@ -148,10 +149,12 @@ async function requestTransactionsByAddress(
 
 export class NimiqRpcClient {
   readonly #fetcher: typeof fetch
+  readonly #attemptsPerProvider: number
   readonly #providers: string[]
   readonly #timeoutMs: number
 
   constructor(options: RpcClientOptions) {
+    this.#attemptsPerProvider = Math.max(1, Math.trunc(options.attemptsPerProvider ?? RPC_ATTEMPTS_PER_PROVIDER))
     this.#fetcher = options.fetcher ?? fetch
     this.#providers = providerUrls(options.primaryUrl, options.fallbackUrl)
     this.#timeoutMs = options.timeoutMs ?? RPC_TIMEOUT_MS
@@ -162,7 +165,7 @@ export class NimiqRpcClient {
     let sawNotFound = false
 
     for (const provider of this.#providers) {
-      for (let attempt = 0; attempt < RPC_ATTEMPTS_PER_PROVIDER; attempt += 1) {
+      for (let attempt = 0; attempt < this.#attemptsPerProvider; attempt += 1) {
         const result = await requestTransaction(this.#fetcher, provider, hash, this.#timeoutMs)
         if (result.kind === 'found') return { status: 'found', transaction: result.transaction }
         if (result.kind === 'not_found') {
@@ -186,7 +189,7 @@ export class NimiqRpcClient {
     const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 500)
 
     for (const provider of this.#providers) {
-      for (let attempt = 0; attempt < RPC_ATTEMPTS_PER_PROVIDER; attempt += 1) {
+      for (let attempt = 0; attempt < this.#attemptsPerProvider; attempt += 1) {
         const result = await requestTransactionsByAddress(
           this.#fetcher,
           provider,

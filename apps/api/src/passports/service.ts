@@ -47,22 +47,35 @@ export class PassportCollectionError extends Error {}
 function eventHashInput(
   passportId: string,
   payloadHash: string,
+  previousEventHash: string | null,
+  sequence: number,
+  type: string,
 ) {
   return canonicalJson({
     passportId,
     payloadHash,
-    previousEventHash: null,
-    sequence: 1,
-    type: 'issued',
+    previousEventHash,
+    sequence,
+    type,
     version: 1,
   })
+}
+
+export async function computePassportEventHash(
+  passportId: string,
+  payloadHash: string,
+  previousEventHash: string | null,
+  sequence: number,
+  type: string,
+) {
+  return sha256Hex(eventHashInput(passportId, payloadHash, previousEventHash, sequence, type))
 }
 
 export async function computeFirstPassportEventHash(
   passportId: string,
   payloadHash: string,
 ) {
-  return sha256Hex(eventHashInput(passportId, payloadHash))
+  return computePassportEventHash(passportId, payloadHash, null, 1, 'issued')
 }
 
 function parsedIssuedPayload(canonical: string) {

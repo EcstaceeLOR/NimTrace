@@ -30,6 +30,7 @@ import {
   issuePassportForConfirmedPurchase,
   listWalletPassports,
 } from './passports/service'
+import { PublicPassportError, getPublicPassportVerification } from './passports/public'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -74,6 +75,15 @@ function paymentRpc(env: Bindings, network = networkFromEnvironment(env.NIMIQ_NE
   return new NimiqRpcClient({
     fallbackUrl: env.NIMIQ_RPC_FALLBACK_URL ?? communityRpcUrl(network),
     primaryUrl: env.NIMIQ_RPC_PRIMARY_URL,
+  })
+}
+
+function publicPassportRpc(env: Bindings, network = networkFromEnvironment(env.NIMIQ_NETWORK)) {
+  return new NimiqRpcClient({
+    attemptsPerProvider: 1,
+    fallbackUrl: env.NIMIQ_RPC_FALLBACK_URL ?? communityRpcUrl(network),
+    primaryUrl: env.NIMIQ_RPC_PRIMARY_URL,
+    timeoutMs: 750,
   })
 }
 
@@ -257,6 +267,20 @@ app.get('/api/passports/:passportId', async (c) => {
   return c.json(passport, 200, { 'Cache-Control': 'no-store' })
 })
 
+app.get('/api/passports/:passportId/verification', async (c) => {
+  const network = networkFromEnvironment(c.env.NIMIQ_NETWORK)
+  const verification = await getPublicPassportVerification(
+    c.env.DB,
+    c.req.param('passportId'),
+    network,
+    publicPassportRpc(c.env, network),
+    new URL(c.req.url).origin,
+  )
+  return c.json(verification, 200, {
+    'Cache-Control': 'public, max-age=15, stale-while-revalidate=60',
+  })
+})
+
 app.get('/api/products/:productId', async (c) => {
   const versionValue = c.req.query('version')
   const version = versionValue === undefined ? undefined : Number(versionValue)
@@ -321,6 +345,9 @@ app.get('/api/product-images', async (c) => {
 app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 404))
 
 app.onError((error, c) => {
+  if (error instanceof PublicPassportError) {
+    return c.json({ error: 'passport_not_found', message: error.message }, 404)
+  }
   if (error instanceof PassportCollectionError) {
     return c.json({ error: 'passport_not_found', message: error.message }, 404)
   }
