@@ -4,6 +4,7 @@ import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
 import { PublicProductPage } from './features/products/PublicProductPage'
+import { PassportCollection } from './features/passports/PassportCollection'
 
 type ApiState =
   | { status: 'checking' }
@@ -92,6 +93,18 @@ export function App() {
 
   if (productRoute?.[1]) {
     return <PublicProductPage productId={decodeURIComponent(productRoute[1])} />
+  }
+
+  if (wallet.status === 'connected' && !showIssuer) {
+    return (
+      <main>
+        <PassportCollection
+          address={wallet.address}
+          sessionToken={wallet.sessionToken}
+          onBack={() => setWallet({ status: 'idle' })}
+        />
+      </main>
+    )
   }
 
   return (

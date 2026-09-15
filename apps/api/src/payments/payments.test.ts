@@ -4,6 +4,8 @@ import { KeyPair } from '@nimiq/core'
 import {
   IssuedPassportEventPayloadSchema,
   IssuedPassportResponseSchema,
+  PassportCollectionResponseSchema,
+  PassportDetailSchema,
   ProductIssuanceChallengeResponseSchema,
   PaymentSubmissionResponseSchema,
   PaymentVerificationResponseSchema,
@@ -468,6 +470,63 @@ describe('buyer-bound purchase intents', () => {
     )
     expect(PaymentVerificationResponseSchema.parse(await replay.json()).state).toBe('verified')
     expect(fetcher).toHaveBeenCalledTimes(1)
+
+    const collectionResponse = await app.request('/api/passports', {
+      headers: { Authorization: `Bearer ${buyerToken}` },
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    const collection = PassportCollectionResponseSchema.parse(await collectionResponse.json())
+    expect(collection.items).toHaveLength(1)
+    expect(collection.items[0]).toMatchObject({
+      auditState: 'verified',
+      id: passport.id,
+      issuerAddress: sellerAddress,
+      ownership: 'current',
+      productId,
+      warrantyState: 'active',
+    })
+    const unrelatedCollection = PassportCollectionResponseSchema.parse(await (
+      await app.request('/api/passports', {
+        headers: { Authorization: `Bearer ${otherBuyerToken}` },
+      }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    ).json())
+    expect(unrelatedCollection.items).toEqual([])
+    expect((await app.request(`/api/passports/${passport.id}`, {
+      headers: { Authorization: `Bearer ${otherBuyerToken}` },
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })).status).toBe(404)
+
+    const detailResponse = await app.request(`/api/passports/${passport.id}`, {
+      headers: { Authorization: `Bearer ${buyerToken}` },
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    const detail = PassportDetailSchema.parse(await detailResponse.json())
+    expect(detail).toMatchObject({
+      events: [{ eventHash: passport.firstEventHash, sequence: 1, type: 'issued' }],
+      ownerActions: ['transfer', 'present_warranty'],
+      productProofHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      purchaseTransactionHash: transactionHash,
+    })
+
+    database.prepare(`
+      UPDATE passports SET current_owner_address = ?, version = version + 1, updated_at = ?
+      WHERE id = ?
+    `).run(otherBuyerAddress, new Date(chainTimestamp + 2_000).toISOString(), passport.id)
+    const formerDefault = PassportCollectionResponseSchema.parse(await (
+      await app.request('/api/passports', {
+        headers: { Authorization: `Bearer ${buyerToken}` },
+      }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    ).json())
+    expect(formerDefault.items).toEqual([])
+    const formerHistory = PassportCollectionResponseSchema.parse(await (
+      await app.request('/api/passports?includeHistory=true', {
+        headers: { Authorization: `Bearer ${buyerToken}` },
+      }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    ).json())
+    expect(formerHistory.items[0]).toMatchObject({ id: passport.id, ownership: 'former' })
+    const formerDetail = PassportDetailSchema.parse(await (
+      await app.request(`/api/passports/${passport.id}`, {
+        headers: { Authorization: `Bearer ${buyerToken}` },
+      }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+    ).json())
+    expect(formerDetail.ownerActions).toEqual([])
   })
 
   it('rolls back confirmation, ownership, event, and product state when issuance fails', async () => {

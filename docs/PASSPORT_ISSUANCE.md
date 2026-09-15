@@ -64,3 +64,6 @@ the passport ID, sequence `1`, type `issued`, and `previousEventHash: null`.
 Before returning a passport, the audit projection reparses and canonicalizes the
 payload, recomputes both hashes, checks the event/head link, and compares every
 payload reference with current immutable database evidence.
+
+The resulting owner and historical views are described in
+[PASSPORT_COLLECTION.md](./PASSPORT_COLLECTION.md).
