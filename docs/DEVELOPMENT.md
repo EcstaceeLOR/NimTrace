@@ -54,6 +54,11 @@ Never tunnel or expose a development server that contains production secrets.
 For HTTPS-only device policies, use a trusted development tunnel and allow only
 the exact generated origin.
 
+For a deployed API, set `CORS_ORIGIN` to the exact HTTPS Pages origin (never
+`*`). The Worker adds a restrictive CSP, frame protection, MIME sniffing
+protection, referrer policy, and permissions policy to every response. Keep
+the preview and production value separate in Wrangler environments.
+
 ## Quality commands
 
 ```bash
