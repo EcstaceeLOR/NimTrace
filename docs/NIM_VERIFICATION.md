@@ -47,9 +47,10 @@ payments and acceptance based only on a payout sender assumption.
 - `inconclusive`: providers are unavailable, return malformed data, or do not
   expose enough relationship/finality evidence.
 
-Only `verified` writes `confirmed`. A conclusive mismatch writes `failed` with
-its reason. `pending` and `inconclusive` remain retryable and never release a
-product or manufacture ownership.
+Only `verified` enters the atomic confirmation-and-passport issuance batch. A
+conclusive mismatch writes `failed` with its reason. `pending` and
+`inconclusive` remain retryable and never release a product or manufacture
+ownership. See [PASSPORT_ISSUANCE.md](./PASSPORT_ISSUANCE.md).
 
 ## RPC availability
 

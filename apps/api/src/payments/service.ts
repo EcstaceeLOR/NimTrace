@@ -11,7 +11,6 @@ import { randomToken, sha256Hex } from '../auth/crypto'
 import { getPublicProduct } from '../products/public'
 import {
   expirePendingPurchaseIntents,
-  confirmPaymentIntent,
   failPaymentIntent,
   expirePaymentIntentIfUnpaid,
   findActiveInitialPurchaseIntent,
@@ -28,6 +27,7 @@ import {
   INCLUSION_GRACE_MS,
   verifyStoredPaymentIntent,
 } from './verification'
+import { issuePassportForConfirmedPurchase } from '../passports/service'
 
 const PURCHASE_INTENT_TTL_MS = 10 * 60 * 1000
 const PURCHASE_TAG_PREFIX = 'NTP1:'
@@ -239,13 +239,19 @@ async function settleSubmittedPayment(
     && stored.intent.status === 'submitted'
     && result.blockHeight !== null
     && result.chainTimestamp) {
-    settled = await confirmPaymentIntent(
+    await issuePassportForConfirmedPurchase(
       db,
       stored.intent.id,
-      stored.transactionHash!,
-      result.blockHeight,
-      result.chainTimestamp,
+      {
+        blockHeight: result.blockHeight,
+        confirmedAt: result.chainTimestamp,
+        transactionHash: stored.transactionHash!,
+      },
+      undefined,
+      now,
     )
+  } else if (result.state === 'verified' && stored.intent.status === 'confirmed') {
+    await issuePassportForConfirmedPurchase(db, stored.intent.id, undefined, undefined, now)
   } else if (result.state === 'rejected' && stored.intent.status === 'submitted') {
     settled = await failPaymentIntent(db, stored.intent.id, `chain_${result.reason}`, now.toISOString())
   }

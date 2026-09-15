@@ -16,6 +16,7 @@ const migrations = [
   '0002_wallet_auth_invariants.sql',
   '0003_product_issuance.sql',
   '0004_purchase_intents.sql',
+  '0005_passport_issuance.sql',
 ].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 
 class TestStatement {

@@ -45,3 +45,8 @@ Zero changed rows means another workflow won the race. Passport-event insertion
 checks the next sequence and previous hash, then advances the passport head and
 version through a trigger. Multi-statement application workflows must use D1
 `batch()` so a failed statement rolls back the atomic batch.
+
+Initial passport issuance additionally uses schema triggers to bind the owner,
+signed product version, payment evidence, and warranty dates. The first event
+activates the passport and marks the one physical product sold inside the same
+batch. See [PASSPORT_ISSUANCE.md](./PASSPORT_ISSUANCE.md).
