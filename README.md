@@ -55,6 +55,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Buyer-bound purchase intents and transaction tags](docs/PURCHASE_INTENTS.md)
 - [Direct Nimiq Pay checkout and recovery states](docs/NIM_CHECKOUT.md)
 - [Independent NIM transaction verification](docs/NIM_VERIFICATION.md)
+- [Interrupted-payment reconciliation and cleanup](docs/PAYMENT_RECONCILIATION.md)
 
 ## Local development
 

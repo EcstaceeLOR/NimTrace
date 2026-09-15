@@ -11,6 +11,11 @@ export type TransactionLookupResult =
   | { status: 'unavailable' }
   | { status: 'invalid' }
 
+export type TransactionHistoryLookupResult =
+  | { status: 'found'; transactions: NimiqRpcTransaction[] }
+  | { status: 'unavailable' }
+  | { status: 'invalid' }
+
 interface RpcClientOptions {
   fallbackUrl?: string
   fetcher?: typeof fetch
@@ -43,6 +48,17 @@ function unwrapTransaction(envelope: JsonRpcEnvelope): NimiqRpcTransaction | nul
   const result = envelope.result
   if ('data' in result) return isObject(result.data) ? result.data : null
   return result
+}
+
+function unwrapTransactions(envelope: JsonRpcEnvelope): NimiqRpcTransaction[] | null {
+  const result = envelope.result
+  const transactions = Array.isArray(result)
+    ? result
+    : isObject(result) && 'data' in result
+      ? result.data
+      : null
+  if (!Array.isArray(transactions) || !transactions.every(isObject)) return null
+  return transactions
 }
 
 async function requestTransaction(
@@ -88,6 +104,48 @@ async function requestTransaction(
   }
 }
 
+async function requestTransactionsByAddress(
+  fetcher: typeof fetch,
+  url: string,
+  address: string,
+  limit: number,
+  timeoutMs: number,
+): Promise<{ kind: 'found'; transactions: NimiqRpcTransaction[] }
+  | { kind: 'retry' | 'invalid' }> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetcher(url, {
+      body: JSON.stringify({
+        id: `nimtrace-address-${address.replace(/\s/g, '').slice(0, 12)}`,
+        jsonrpc: '2.0',
+        method: 'getTransactionsByAddress',
+        params: [address, limit, null],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      signal: controller.signal,
+    })
+    if (!response.ok) return { kind: 'retry' }
+
+    let envelope: unknown
+    try {
+      envelope = await response.json()
+    } catch {
+      return { kind: 'invalid' }
+    }
+    if (!isObject(envelope)) return { kind: 'invalid' }
+    const rpcEnvelope = envelope as JsonRpcEnvelope
+    if (rpcEnvelope.error) return { kind: 'retry' }
+    const transactions = unwrapTransactions(rpcEnvelope)
+    return transactions ? { kind: 'found', transactions } : { kind: 'invalid' }
+  } catch {
+    return { kind: 'retry' }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export class NimiqRpcClient {
   readonly #fetcher: typeof fetch
   readonly #providers: string[]
@@ -121,6 +179,30 @@ export class NimiqRpcClient {
     if (sawNotFound) return { status: 'not_found' }
     if (sawInvalid) return { status: 'invalid' }
     return { status: 'unavailable' }
+  }
+
+  async getTransactionsByAddress(address: string, limit = 100): Promise<TransactionHistoryLookupResult> {
+    let sawInvalid = false
+    const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 500)
+
+    for (const provider of this.#providers) {
+      for (let attempt = 0; attempt < RPC_ATTEMPTS_PER_PROVIDER; attempt += 1) {
+        const result = await requestTransactionsByAddress(
+          this.#fetcher,
+          provider,
+          address,
+          boundedLimit,
+          this.#timeoutMs,
+        )
+        if (result.kind === 'found') return { status: 'found', transactions: result.transactions }
+        if (result.kind === 'invalid') {
+          sawInvalid = true
+          break
+        }
+      }
+    }
+
+    return { status: sawInvalid ? 'invalid' : 'unavailable' }
   }
 }
 

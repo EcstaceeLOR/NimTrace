@@ -18,6 +18,7 @@ import { PublicProductError, getPublicProduct } from './products/public'
 import {
   PaymentIntentServiceError,
   createInitialPurchaseIntent,
+  reconcilePaymentIntents,
   recordPaymentSubmission,
   verifyPaymentIntent,
 } from './payments/service'
@@ -60,6 +61,13 @@ app.get('/api/health', (c) => {
 
 function networkFromEnvironment(value: string | undefined) {
   return NimiqNetworkSchema.parse(value ?? 'main-albatross')
+}
+
+function paymentRpc(env: Bindings, network = networkFromEnvironment(env.NIMIQ_NETWORK)) {
+  return new NimiqRpcClient({
+    fallbackUrl: env.NIMIQ_RPC_FALLBACK_URL ?? communityRpcUrl(network),
+    primaryUrl: env.NIMIQ_RPC_PRIMARY_URL,
+  })
 }
 
 app.post('/api/auth/challenges', async (c) => {
@@ -203,10 +211,7 @@ app.get('/api/payment-intents/:intentId/verification', async (c) => {
     c.env.DB,
     c.req.param('intentId'),
     buyerAddress,
-    new NimiqRpcClient({
-      fallbackUrl: c.env.NIMIQ_RPC_FALLBACK_URL ?? communityRpcUrl(network),
-      primaryUrl: c.env.NIMIQ_RPC_PRIMARY_URL,
-    }),
+    paymentRpc(c.env, network),
   )
   return c.json(verification, 200, { 'Cache-Control': 'no-store' })
 })
@@ -306,4 +311,12 @@ app.onError((error, c) => {
   }, 500)
 })
 
-export default app
+export default {
+  fetch: app.fetch,
+  scheduled(_controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    const network = networkFromEnvironment(env.NIMIQ_NETWORK)
+    ctx.waitUntil(reconcilePaymentIntents(env.DB, network, paymentRpc(env, network)).then((summary) => {
+      console.log('Payment reconciliation completed', summary)
+    }))
+  },
+}

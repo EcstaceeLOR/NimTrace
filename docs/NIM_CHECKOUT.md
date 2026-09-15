@@ -57,10 +57,17 @@ expired and replaced cannot be resubmitted through this endpoint.
   blocks another payment and retains the unique tag for reconciliation.
 - If a hash was captured but the API was offline, **Retry status update** sends
   only that same hash; it never calls the payment method again.
-- Reloading with a captured hash asks the buyer to reauthenticate, verifies the
-  same buyer wallet, and resumes hash submission without storing a bearer token.
+- Reloading in any interrupted stage automatically asks the buyer to
+  reauthenticate, verifies the same buyer wallet, and reconciles the existing
+  intent before another payment can be offered. A captured hash is resubmitted
+  idempotently; without a hash, the unique tag is discovered from chain history.
+- Pending or inconclusive evidence exposes **Check payment status**, which never
+  invokes the wallet payment method. No bearer token is stored.
 - A successfully submitted hash is explicitly labelled as awaiting independent
   verification, not as a completed purchase.
+
+The scheduled recovery and cleanup behavior is specified in
+[PAYMENT_RECONCILIATION.md](./PAYMENT_RECONCILIATION.md).
 
 ## Physical-device gate
 

@@ -1,14 +1,18 @@
 # Independent NIM payment verification
 
-`GET /api/payment-intents/<intent-id>/verification` is the only path that can
-move a submitted purchase to `confirmed`. The caller must authenticate as the
-buyer that owns the stored intent. Client claims, display state, and values in
-the request are never used as payment evidence.
+`GET /api/payment-intents/<intent-id>/verification` and the scheduled
+reconciler enter the same settlement function, which is the only code path that
+can move a submitted purchase to `confirmed`. The HTTP caller must authenticate
+as the buyer that owns the stored intent. Client claims, display state, and
+values in the request are never used as payment evidence.
 
 ## Chain checks
 
-The verifier makes only the read-only `getTransactionByHash` JSON-RPC call and
-compares the response with the immutable D1 intent. It requires:
+For a submitted hash, the verifier makes only the read-only
+`getTransactionByHash` JSON-RPC call and compares the response with the
+immutable D1 intent. Pending intents without a hash may first be discovered
+with bounded `getTransactionsByAddress` history; every discovered candidate is
+passed through these same checks before its hash is stored. It requires:
 
 - the returned hash to equal the submitted, database-unique hash;
 - `executionResult: true` (or the equivalent included/confirmed state);

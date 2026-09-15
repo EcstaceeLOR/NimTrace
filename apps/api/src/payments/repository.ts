@@ -48,6 +48,16 @@ function toPurchaseIntent(row: PaymentIntentRow): PurchaseIntentResponse {
   }
 }
 
+function toStoredPaymentIntent(row: PaymentIntentRow): StoredPaymentIntent {
+  return {
+    confirmedAt: row.confirmed_at,
+    confirmedBlockHeight: row.confirmed_block_height,
+    failureCode: row.failure_code,
+    intent: toPurchaseIntent(row),
+    transactionHash: row.transaction_hash,
+  }
+}
+
 export interface StoredPaymentIntent {
   confirmedAt: string | null
   confirmedBlockHeight: number | null
@@ -65,13 +75,22 @@ export async function findPaymentIntent(
     FROM payment_intents
     WHERE id = ?
   `).bind(intentId).first<PaymentIntentRow>()
-  return row ? {
-    confirmedAt: row.confirmed_at,
-    confirmedBlockHeight: row.confirmed_block_height,
-    failureCode: row.failure_code,
-    intent: toPurchaseIntent(row),
-    transactionHash: row.transaction_hash,
-  } : null
+  return row ? toStoredPaymentIntent(row) : null
+}
+
+export async function listReconcilablePaymentIntents(
+  db: D1Database,
+  network: NimiqNetwork,
+  limit: number,
+): Promise<StoredPaymentIntent[]> {
+  const result = await db.prepare(`
+    SELECT ${intentProjection}
+    FROM payment_intents
+    WHERE network = ? AND status IN ('pending', 'submitted')
+    ORDER BY created_at ASC
+    LIMIT ?
+  `).bind(network, limit).all<PaymentIntentRow>()
+  return result.results.map(toStoredPaymentIntent)
 }
 
 export async function findPurchaseIntentByIdempotency(
@@ -134,14 +153,30 @@ export async function insertInitialPurchaseIntent(
 export async function expirePendingPurchaseIntents(
   db: D1Database,
   productId: string,
-  now: string,
+  expiresBefore: string,
+  updatedAt = expiresBefore,
 ): Promise<void> {
   await db.prepare(`
     UPDATE payment_intents
     SET status = 'expired', updated_at = ?
     WHERE product_id = ? AND purpose = 'initial_purchase'
-      AND status = 'pending' AND expires_at <= ?
-  `).bind(now, productId, now).run()
+      AND status = 'pending' AND transaction_hash IS NULL AND expires_at <= ?
+  `).bind(updatedAt, productId, expiresBefore).run()
+}
+
+export async function expirePaymentIntentIfUnpaid(
+  db: D1Database,
+  intentId: string,
+  expiresBefore: string,
+  updatedAt: string,
+): Promise<boolean> {
+  const result = await db.prepare(`
+    UPDATE payment_intents
+    SET status = 'expired', updated_at = ?
+    WHERE id = ? AND status = 'pending' AND transaction_hash IS NULL
+      AND expires_at <= ?
+  `).bind(updatedAt, intentId, expiresBefore).run()
+  return (result.meta.changes ?? 0) === 1
 }
 
 export async function submitPaymentIntent(
