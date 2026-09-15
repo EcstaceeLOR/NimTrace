@@ -1,0 +1,32 @@
+{
+  "source": {
+    "capturedAt": "2026-09-15T00:24:00.000Z",
+    "endpoint": "https://rpc.testnet.nimiqwatch.com/",
+    "method": "getTransactionByHash",
+    "network": "TestAlbatross"
+  },
+  "transaction": {
+    "hash": "57cd408a5cc9889a8e4c9b1e39d5e10223f0284630431646366596aabb1fe09b",
+    "blockNumber": 11465544,
+    "timestamp": 1789431193238,
+    "confirmations": 430,
+    "size": 194,
+    "relatedAddresses": [
+      "NQ69 01XF BPMN DF8X XX6H K444 1AQM 12GP CX87",
+      "NQ92 E4L7 8PRQ 8MXD MNV1 BJVK LA8C B6PN C74V"
+    ],
+    "from": "NQ92 E4L7 8PRQ 8MXD MNV1 BJVK LA8C B6PN C74V",
+    "fromType": 0,
+    "to": "NQ69 01XF BPMN DF8X XX6H K444 1AQM 12GP CX87",
+    "toType": 0,
+    "value": 1000000,
+    "fee": 0,
+    "senderData": "",
+    "recipientData": "703a6637366634663233393464393432613839653266643537393a31",
+    "flags": 0,
+    "validityStartHeight": 11465542,
+    "proof": "00515afe208de5303b29d77ac51521d98803f856554f5fbfd0390af5c7211a5f3700fd997da0de6fefce2171b7bb0bf1236d5d1968c6e509e7e8dc500e4f3caaca949e8cb5c2aca705c565a14fc22e74caff50affae9f5ef9e8e4836e90807a94408",
+    "networkId": 5,
+    "executionResult": true
+  }
+}

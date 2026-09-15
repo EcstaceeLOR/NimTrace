@@ -1,0 +1,35 @@
+{
+  "source": {
+    "capturedAt": "2026-09-15T00:31:00.000Z",
+    "endpoint": "https://rpc.testnet.nimiqwatch.com/",
+    "method": "getTransactionByHash",
+    "network": "TestAlbatross",
+    "note": "Regular HTLC payout. The from address is the contract; relatedAddresses retains the participating wallet context."
+  },
+  "transaction": {
+    "hash": "8cca359aa25d6a05ab1dff18e6c4729c563516542902d210d06113888f288323",
+    "blockNumber": 11465928,
+    "timestamp": 1789431570762,
+    "confirmations": 341,
+    "size": 266,
+    "relatedAddresses": [
+      "NQ91 0Q47 HSD6 N6Y3 HDL0 HFNV NQKG RX9U 3JTT",
+      "NQ51 2GCM 2F0A P92H VN8H 9TL1 DUSP 1FSG CDDV",
+      "NQ07 B790 1DP1 PPQK 2P0Y JXYP QKBT 1H95 P90S",
+      "NQ54 FTGY F6VJ EJPU NSMN RA5Q 0K21 8EQT Q05P"
+    ],
+    "from": "NQ91 0Q47 HSD6 N6Y3 HDL0 HFNV NQKG RX9U 3JTT",
+    "fromType": 2,
+    "to": "NQ07 B790 1DP1 PPQK 2P0Y JXYP QKBT 1H95 P90S",
+    "toType": 0,
+    "value": 5154691716,
+    "fee": 0,
+    "senderData": "",
+    "recipientData": "",
+    "flags": 0,
+    "validityStartHeight": 11465922,
+    "proof": "0100c1534c708122968212c6709526801d18218ce9303590f2bca473213d99b24aaf00fc4712f5e9cab83fb45375c5dc091329f210bedc82481a056714e2d738d0192ffa71df9c8dbd8f963704229142c841b6aab4bf6a301bf2328c29f1ce6844590200998cc50b1b488c65118b323890998af82f9b1d048d11c7e8ebf71e7696288b9b0068a10c36c61ef39360a01c5847a9b27c3a6a24e65a6dbe73f13b122f152b1b9d6abfe19739bc51bdfd95bef6b282335cf7f24624b759c27f5ca18957bc9f550a",
+    "networkId": 5,
+    "executionResult": true
+  }
+}

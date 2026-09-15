@@ -4,10 +4,11 @@ import { KeyPair } from '@nimiq/core'
 import {
   ProductIssuanceChallengeResponseSchema,
   PaymentSubmissionResponseSchema,
+  PaymentVerificationResponseSchema,
   PublishedProductResponseSchema,
   PurchaseIntentResponseSchema,
 } from '@nimtrace/contracts'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { app } from '../index'
 import { sha256Hex } from '../auth/crypto'
 import { nimiqSignedMessageDigest } from '../auth/message'
@@ -130,6 +131,7 @@ describe('buyer-bound purchase intents', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     sellerKey.free()
     buyerKey.free()
     otherBuyerKey.free()
@@ -315,6 +317,73 @@ describe('buyer-bound purchase intents', () => {
     const hidden = await submitIntent(intent.id, transactionHash, otherBuyerToken)
     expect(hidden.status).toBe(404)
     expect(await hidden.json()).toMatchObject({ error: 'payment_intent_not_found' })
+  })
+
+  it('confirms only after the authenticated verification endpoint matches independent chain data', async () => {
+    const productId = await publishProduct('VERIFY-001', 7654321)
+    const intent = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(productId, 'purchase-attempt-verify-0001')
+    ).json())
+    const transactionHash = 'd'.repeat(64)
+    expect((await submitIntent(intent.id, transactionHash)).status).toBe(200)
+
+    const chainTimestamp = Date.parse(intent.createdAt) + 1_000
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      jsonrpc: '2.0',
+      result: {
+        data: {
+          blockNumber: 123456,
+          confirmations: 60,
+          executionResult: true,
+          from: buyerAddress,
+          fromType: 0,
+          hash: transactionHash,
+          networkId: 5,
+          recipientData: Buffer.from(intent.transactionData, 'utf8').toString('hex'),
+          relatedAddresses: [buyerAddress, sellerAddress],
+          timestamp: chainTimestamp,
+          to: sellerAddress,
+          toType: 0,
+          value: intent.amountLuna,
+        },
+        metadata: null,
+      },
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetcher)
+
+    const verifiedResponse = await app.request(
+      `/api/payment-intents/${intent.id}/verification`,
+      { headers: { Authorization: `Bearer ${buyerToken}` } },
+      {
+        DB: db,
+        NIMIQ_NETWORK: 'test-albatross',
+        NIMIQ_RPC_FALLBACK_URL: '',
+        NIMIQ_RPC_PRIMARY_URL: 'https://primary.example/rpc',
+      },
+    )
+    expect(verifiedResponse.status).toBe(200)
+    expect(PaymentVerificationResponseSchema.parse(await verifiedResponse.json())).toMatchObject({
+      blockHeight: 123456,
+      confirmations: 60,
+      reason: 'verified_final',
+      state: 'verified',
+      transactionHash,
+    })
+    expect(database.prepare(`
+      SELECT status, confirmed_block_height, confirmed_at FROM payment_intents WHERE id = ?
+    `).get(intent.id)).toEqual({
+      confirmed_at: new Date(chainTimestamp).toISOString(),
+      confirmed_block_height: 123456,
+      status: 'confirmed',
+    })
+
+    const replay = await app.request(
+      `/api/payment-intents/${intent.id}/verification`,
+      { headers: { Authorization: `Bearer ${buyerToken}` } },
+      { DB: db, NIMIQ_NETWORK: 'test-albatross' },
+    )
+    expect(PaymentVerificationResponseSchema.parse(await replay.json()).state).toBe('verified')
+    expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
   it('preserves a wallet-returned hash even when API delivery happens after display expiry', async () => {
