@@ -19,7 +19,7 @@ import {
   failPaymentIntent,
   submitPaymentIntent,
 } from './repository'
-import { recordPaymentSubmission } from './service'
+import { reconcilePaymentIntents, recordPaymentSubmission } from './service'
 
 const migrations = [
   '0001_lifecycle_schema.sql',
@@ -49,6 +49,14 @@ class TestStatement {
   async run() {
     const result = this.#statement.run(...this.#values)
     return { success: true, meta: { changes: Number(result.changes) }, results: [] }
+  }
+
+  async all<T>() {
+    return {
+      success: true,
+      meta: {},
+      results: this.#statement.all(...this.#values) as T[],
+    }
   }
 }
 
@@ -384,6 +392,116 @@ describe('buyer-bound purchase intents', () => {
     )
     expect(PaymentVerificationResponseSchema.parse(await replay.json()).state).toBe('verified')
     expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('recovers a force-closed payment from its unique chain tag and uses the normal settlement path', async () => {
+    const productId = await publishProduct('RECOVER-TAG-001', 2345678)
+    const intent = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(productId, 'purchase-attempt-recover-0001')
+    ).json())
+    const transactionHash = 'e'.repeat(64)
+    const timestamp = Date.parse(intent.createdAt) + 2_000
+    const transaction = {
+      blockNumber: 456789,
+      confirmations: 60,
+      executionResult: true,
+      from: buyerAddress,
+      fromType: 0,
+      hash: transactionHash,
+      networkId: 5,
+      recipientData: Buffer.from(intent.transactionData).toString('hex'),
+      relatedAddresses: [buyerAddress, sellerAddress],
+      timestamp,
+      to: sellerAddress,
+      toType: 0,
+      value: intent.amountLuna,
+    }
+    const rpc = {
+      getTransaction: vi.fn(),
+      getTransactionsByAddress: vi.fn().mockResolvedValue({ status: 'found', transactions: [transaction] }),
+    }
+
+    await expect(reconcilePaymentIntents(
+      db,
+      'test-albatross',
+      rpc,
+      new Date(timestamp + 60_000),
+    )).resolves.toEqual({ checked: 1, inconclusive: 0, pending: 0, rejected: 0, verified: 1 })
+    expect(database.prepare(`
+      SELECT status, transaction_hash, confirmed_block_height, confirmed_at
+      FROM payment_intents WHERE id = ?
+    `).get(intent.id)).toEqual({
+      confirmed_at: new Date(timestamp).toISOString(),
+      confirmed_block_height: 456789,
+      status: 'confirmed',
+      transaction_hash: transactionHash,
+    })
+    expect(rpc.getTransaction).not.toHaveBeenCalled()
+  })
+
+  it('binds a discovered pre-final transaction once and polls the same hash idempotently', async () => {
+    const productId = await publishProduct('RECOVER-PENDING-001')
+    const intent = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(productId, 'purchase-attempt-recover-0002')
+    ).json())
+    const transactionHash = 'f'.repeat(64)
+    const transaction = {
+      blockNumber: 567890,
+      confirmations: 20,
+      executionResult: true,
+      from: buyerAddress,
+      hash: transactionHash,
+      networkId: 5,
+      recipientData: Buffer.from(intent.transactionData).toString('hex'),
+      relatedAddresses: [buyerAddress, sellerAddress],
+      timestamp: Date.parse(intent.createdAt) + 1_000,
+      to: sellerAddress,
+      value: intent.amountLuna,
+    }
+    const rpc = {
+      getTransaction: vi.fn().mockResolvedValue({
+        status: 'found',
+        transaction: { ...transaction, confirmations: 60 },
+      }),
+      getTransactionsByAddress: vi.fn().mockResolvedValue({ status: 'found', transactions: [transaction] }),
+    }
+
+    const first = await reconcilePaymentIntents(db, 'test-albatross', rpc)
+    expect(first).toMatchObject({ pending: 1, verified: 0 })
+    expect(database.prepare('SELECT status, transaction_hash FROM payment_intents WHERE id = ?').get(intent.id))
+      .toEqual({ status: 'submitted', transaction_hash: transactionHash })
+
+    const second = await reconcilePaymentIntents(db, 'test-albatross', rpc)
+    expect(second).toMatchObject({ pending: 0, verified: 1 })
+    expect(rpc.getTransactionsByAddress).toHaveBeenCalledTimes(1)
+    expect(rpc.getTransaction).toHaveBeenCalledTimes(1)
+    expect(database.prepare('SELECT status, transaction_hash FROM payment_intents WHERE id = ?').get(intent.id))
+      .toEqual({ status: 'confirmed', transaction_hash: transactionHash })
+  })
+
+  it('expires only unpaid intents after the inclusion grace window', async () => {
+    const unpaidProduct = await publishProduct('RECOVER-EXPIRE-UNPAID')
+    const unpaid = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(unpaidProduct, 'purchase-attempt-recover-0003')
+    ).json())
+    const paidProduct = await publishProduct('RECOVER-EXPIRE-PAID')
+    const paid = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(paidProduct, 'purchase-attempt-recover-0004')
+    ).json())
+    const paidHash = '9'.repeat(64)
+    await submitPaymentIntent(db, paid.id, buyerAddress, paidHash, paid.createdAt)
+    const afterGrace = new Date(Math.max(Date.parse(unpaid.expiresAt), Date.parse(paid.expiresAt)) + 120_001)
+    const rpc = {
+      getTransaction: vi.fn().mockResolvedValue({ status: 'not_found' }),
+      getTransactionsByAddress: vi.fn().mockResolvedValue({ status: 'found', transactions: [] }),
+    }
+
+    await reconcilePaymentIntents(db, 'test-albatross', rpc, afterGrace)
+    expect(database.prepare(`
+      SELECT
+        (SELECT status FROM payment_intents WHERE id = ?) AS unpaid,
+        (SELECT status FROM payment_intents WHERE id = ?) AS paid
+    `).get(unpaid.id, paid.id)).toEqual({ paid: 'submitted', unpaid: 'expired' })
   })
 
   it('preserves a wallet-returned hash even when API delivery happens after display expiry', async () => {

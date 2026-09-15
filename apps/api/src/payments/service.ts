@@ -13,17 +13,26 @@ import {
   expirePendingPurchaseIntents,
   confirmPaymentIntent,
   failPaymentIntent,
+  expirePaymentIntentIfUnpaid,
   findActiveInitialPurchaseIntent,
   findPaymentIntent,
   findPurchaseIntentByIdempotency,
   insertInitialPurchaseIntent,
+  listReconcilablePaymentIntents,
   submitPaymentIntent,
+  type StoredPaymentIntent,
 } from './repository'
-import type { NimiqRpcClient } from './rpc'
-import { verifyStoredPaymentIntent } from './verification'
+import type { NimiqRpcClient, NimiqRpcTransaction } from './rpc'
+import {
+  FINALITY_CONFIRMATIONS,
+  INCLUSION_GRACE_MS,
+  verifyStoredPaymentIntent,
+} from './verification'
 
 const PURCHASE_INTENT_TTL_MS = 10 * 60 * 1000
 const PURCHASE_TAG_PREFIX = 'NTP1:'
+const RECONCILIATION_HISTORY_LIMIT = 100
+const RECONCILIATION_JOB_LIMIT = 20
 
 export class PaymentIntentServiceError extends Error {
   constructor(
@@ -60,7 +69,12 @@ export async function createInitialPurchaseIntent(
   now = new Date(),
 ): Promise<{ created: boolean; intent: PurchaseIntentResponse }> {
   const idempotencyKeyHash = await sha256Hex(idempotencyKey)
-  await expirePendingPurchaseIntents(db, productId, now.toISOString())
+  await expirePendingPurchaseIntents(
+    db,
+    productId,
+    new Date(now.getTime() - INCLUSION_GRACE_MS).toISOString(),
+    now.toISOString(),
+  )
 
   const previous = await findPurchaseIntentByIdempotency(db, buyerAddress, idempotencyKeyHash)
   if (previous) {
@@ -168,37 +182,18 @@ export async function verifyPaymentIntent(
   db: D1Database,
   intentId: string,
   buyerAddress: string,
-  rpc: Pick<NimiqRpcClient, 'getTransaction'>,
+  rpc: Pick<NimiqRpcClient, 'getTransaction' | 'getTransactionsByAddress'>,
   now = new Date(),
 ): Promise<PaymentVerificationResponse> {
-  let stored = await findPaymentIntent(db, intentId)
+  const stored = await findPaymentIntent(db, intentId)
   if (!stored || stored.intent.buyerAddress !== buyerAddress) {
     return fail('payment_intent_not_found', 'This payment intent was not found.', 404)
   }
 
-  const result = await verifyStoredPaymentIntent(stored, rpc, now)
-  let settled = true
-  if (result.state === 'verified'
-    && stored.intent.status === 'submitted'
-    && result.blockHeight !== null
-    && result.chainTimestamp) {
-    settled = await confirmPaymentIntent(
-      db,
-      intentId,
-      stored.transactionHash!,
-      result.blockHeight,
-      result.chainTimestamp,
-    )
-  } else if (result.state === 'rejected' && stored.intent.status === 'submitted') {
-    settled = await failPaymentIntent(db, intentId, `chain_${result.reason}`, now.toISOString())
-  }
+  return reconcileStoredPaymentIntent(db, stored, rpc, now)
+}
 
-  if (!settled) {
-    // A concurrent verifier may have settled the same row first. Returning the
-    // recomputed stored result keeps repeated status checks idempotent.
-    stored = await findPaymentIntent(db, intentId)
-    if (stored) return PaymentVerificationResponseSchema.parse(await verifyStoredPaymentIntent(stored, rpc, now))
-  }
+function publicVerification(result: Awaited<ReturnType<typeof verifyStoredPaymentIntent>>) {
   return PaymentVerificationResponseSchema.parse({
     blockHeight: result.blockHeight,
     checkedAt: result.checkedAt,
@@ -209,4 +204,158 @@ export async function verifyPaymentIntent(
     state: result.state,
     transactionHash: result.transactionHash,
   })
+}
+
+function pendingDiscoveryResponse(stored: StoredPaymentIntent, now: Date) {
+  return PaymentVerificationResponseSchema.parse({
+    blockHeight: null,
+    checkedAt: now.toISOString(),
+    confirmations: null,
+    finalityConfirmations: FINALITY_CONFIRMATIONS,
+    id: stored.intent.id,
+    reason: 'transaction_not_found',
+    state: 'pending',
+    transactionHash: null,
+  })
+}
+
+function transactionHash(transaction: NimiqRpcTransaction) {
+  for (const name of ['hash', 'transactionHash', 'transaction_hash']) {
+    const value = transaction[name]
+    if (typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value)) return value
+  }
+  return undefined
+}
+
+async function settleSubmittedPayment(
+  db: D1Database,
+  stored: StoredPaymentIntent,
+  rpc: Pick<NimiqRpcClient, 'getTransaction'>,
+  now: Date,
+): Promise<PaymentVerificationResponse> {
+  const result = await verifyStoredPaymentIntent(stored, rpc, now)
+  let settled = true
+  if (result.state === 'verified'
+    && stored.intent.status === 'submitted'
+    && result.blockHeight !== null
+    && result.chainTimestamp) {
+    settled = await confirmPaymentIntent(
+      db,
+      stored.intent.id,
+      stored.transactionHash!,
+      result.blockHeight,
+      result.chainTimestamp,
+    )
+  } else if (result.state === 'rejected' && stored.intent.status === 'submitted') {
+    settled = await failPaymentIntent(db, stored.intent.id, `chain_${result.reason}`, now.toISOString())
+  }
+
+  if (!settled) {
+    const concurrent = await findPaymentIntent(db, stored.intent.id)
+    if (concurrent) return publicVerification(await verifyStoredPaymentIntent(concurrent, rpc, now))
+  }
+  return publicVerification(result)
+}
+
+async function discoverTaggedPayment(
+  stored: StoredPaymentIntent,
+  rpc: Pick<NimiqRpcClient, 'getTransactionsByAddress'>,
+  now: Date,
+) {
+  const history = await rpc.getTransactionsByAddress(
+    stored.intent.sellerAddress,
+    RECONCILIATION_HISTORY_LIMIT,
+  )
+  if (history.status !== 'found') return history.status
+
+  // RPC history is newest-first. Prefer the earliest valid matching payment if
+  // a wallet managed to broadcast the same intent more than once.
+  for (const transaction of [...history.transactions].reverse()) {
+    const hash = transactionHash(transaction)
+    if (!hash) continue
+    const candidate: StoredPaymentIntent = {
+      ...stored,
+      intent: { ...stored.intent, status: 'submitted' },
+      transactionHash: hash,
+    }
+    const verification = await verifyStoredPaymentIntent(candidate, {
+      getTransaction: async () => ({ status: 'found', transaction }),
+    }, now)
+    if (verification.state === 'verified'
+      || (verification.state === 'pending' && verification.reason === 'awaiting_finality')) {
+      return { candidate, transaction }
+    }
+  }
+  return 'not_found' as const
+}
+
+export async function reconcileStoredPaymentIntent(
+  db: D1Database,
+  stored: StoredPaymentIntent,
+  rpc: Pick<NimiqRpcClient, 'getTransaction' | 'getTransactionsByAddress'>,
+  now = new Date(),
+): Promise<PaymentVerificationResponse> {
+  if (stored.transactionHash || stored.intent.status !== 'pending') {
+    return settleSubmittedPayment(db, stored, rpc, now)
+  }
+
+  const discovery = await discoverTaggedPayment(stored, rpc, now)
+  if (typeof discovery === 'object') {
+    try {
+      const submitted = await submitPaymentIntent(
+        db,
+        stored.intent.id,
+        stored.intent.buyerAddress,
+        discovery.candidate.transactionHash!,
+        now.toISOString(),
+      )
+      if (submitted) {
+        const submittedIntent = await findPaymentIntent(db, stored.intent.id)
+        if (submittedIntent) {
+          return settleSubmittedPayment(db, submittedIntent, {
+            getTransaction: async () => ({ status: 'found', transaction: discovery.transaction }),
+          }, now)
+        }
+      }
+    } catch {
+      // A unique-hash race is resolved by re-reading the intent below.
+    }
+    const concurrent = await findPaymentIntent(db, stored.intent.id)
+    if (concurrent?.transactionHash) return settleSubmittedPayment(db, concurrent, rpc, now)
+  } else if (discovery === 'unavailable' || discovery === 'invalid') {
+    return PaymentVerificationResponseSchema.parse({
+      ...pendingDiscoveryResponse(stored, now),
+      reason: discovery === 'invalid' ? 'provider_response_invalid' : 'provider_unavailable',
+      state: 'inconclusive',
+    })
+  }
+
+  const expiresBefore = new Date(now.getTime() - INCLUSION_GRACE_MS).toISOString()
+  if (stored.intent.expiresAt <= expiresBefore) {
+    await expirePaymentIntentIfUnpaid(db, stored.intent.id, expiresBefore, now.toISOString())
+    const expired = await findPaymentIntent(db, stored.intent.id)
+    if (expired?.intent.status === 'expired') {
+      return settleSubmittedPayment(db, expired, rpc, now)
+    }
+  }
+  return pendingDiscoveryResponse(stored, now)
+}
+
+export async function reconcilePaymentIntents(
+  db: D1Database,
+  network: NimiqNetwork,
+  rpc: Pick<NimiqRpcClient, 'getTransaction' | 'getTransactionsByAddress'>,
+  now = new Date(),
+) {
+  const intents = await listReconcilablePaymentIntents(db, network, RECONCILIATION_JOB_LIMIT)
+  const summary = { checked: intents.length, inconclusive: 0, pending: 0, rejected: 0, verified: 0 }
+  for (const intent of intents) {
+    try {
+      const result = await reconcileStoredPaymentIntent(db, intent, rpc, now)
+      summary[result.state] += 1
+    } catch {
+      summary.inconclusive += 1
+    }
+  }
+  return summary
 }

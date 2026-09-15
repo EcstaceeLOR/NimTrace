@@ -163,4 +163,31 @@ describe('bounded read-only RPC lookup', () => {
     await expect(client.getTransaction('a'.repeat(64))).resolves.toEqual({ status: 'unavailable' })
     expect(fetcher).toHaveBeenCalledTimes(RPC_ATTEMPTS_PER_PROVIDER * 2)
   })
+
+  it('discovers address history through the fixed read-only RPC method and bounded limit', async () => {
+    const transaction = basicFixture.transaction as Record<string, unknown>
+    const fetcher = vi.fn<typeof fetch>()
+      .mockRejectedValueOnce(new Error('primary offline'))
+      .mockRejectedValueOnce(new Error('primary still offline'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ result: { data: [transaction] } }), { status: 200 }))
+    const client = new NimiqRpcClient({
+      fallbackUrl: 'https://fallback.example/rpc',
+      fetcher,
+      primaryUrl: 'https://primary.example/rpc',
+      timeoutMs: 20,
+    })
+
+    await expect(client.getTransactionsByAddress(transaction.to as string, 5_000)).resolves.toEqual({
+      status: 'found',
+      transactions: [transaction],
+    })
+    const fallbackCall = fetcher.mock.calls[RPC_ATTEMPTS_PER_PROVIDER]
+    const request = JSON.parse(String(fallbackCall?.[1]?.body)) as { method: string; params: unknown[] }
+    expect(request).toEqual({
+      id: expect.stringMatching(/^nimtrace-address-/),
+      jsonrpc: '2.0',
+      method: 'getTransactionsByAddress',
+      params: [transaction.to, 500, null],
+    })
+  })
 })

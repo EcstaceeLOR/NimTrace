@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   PaymentSubmissionResponseSchema,
+  PaymentVerificationResponseSchema,
   PurchaseIntentResponseSchema,
+  type PaymentVerificationResponse,
   type PublicProductResponse,
   type PurchaseIntentResponse,
 } from '@nimtrace/contracts'
@@ -32,9 +34,12 @@ type CheckoutState =
   | { status: 'paying'; active: CheckoutSession }
   | { status: 'submitting'; active: CheckoutSession; transactionHash: string }
   | { status: 'retry_submission'; active: CheckoutSession; message: string; transactionHash: string }
-  | { status: 'resumable'; record: PersistedCheckout }
-  | { status: 'submitted'; intent: PurchaseIntentResponse; transactionHash: string }
-  | { status: 'uncertain'; intent: PurchaseIntentResponse; message: string }
+  | { status: 'reconciling'; record: PersistedCheckout }
+  | { status: 'resumable'; message?: string; record: PersistedCheckout }
+  | { status: 'submitted'; message: string; record: PersistedCheckout }
+  | { status: 'confirmed'; intent: PurchaseIntentResponse; transactionHash: string }
+  | { status: 'uncertain'; message: string; record: PersistedCheckout }
+  | { status: 'blocked'; message: string }
   | { status: 'error'; message: string }
 
 interface ProductCheckoutProps {
@@ -100,17 +105,17 @@ function initialCheckoutState(
 ): CheckoutState {
   const restored = restoredCheckout(storage, productId)
   if (!restored) return { status: 'idle' }
-  if (restored.stage === 'submitted' && restored.transactionHash) {
-    return { status: 'submitted', intent: restored.intent, transactionHash: restored.transactionHash }
-  }
-  if (restored.stage === 'awaiting_wallet') {
-    return {
-      status: 'uncertain',
-      intent: restored.intent,
-      message: 'A wallet request was interrupted. Do not pay again while NimTrace reconciles its unique tag.',
-    }
-  }
   return { status: 'resumable', record: restored }
+}
+
+function pendingMessage(verification: PaymentVerificationResponse) {
+  if (verification.state === 'inconclusive') {
+    return 'The network provider is temporarily unavailable. Your existing payment remains protected; do not pay again.'
+  }
+  if (verification.reason === 'awaiting_finality') {
+    return `The payment is included with ${verification.confirmations ?? 0} of ${verification.finalityConfirmations} required confirmations.`
+  }
+  return 'NimTrace is still looking for the existing payment. Do not pay again while its unique tag is reconciled.'
 }
 
 export function ProductCheckout({
@@ -125,21 +130,65 @@ export function ProductCheckout({
   const inFlight = useRef(false)
   const deepLink = wallet.deepLink(publicUrl)
 
-  function persist(record: PersistedCheckout) {
+  const persist = useCallback((record: PersistedCheckout) => {
     try {
       storage?.setItem(storageKey(product.id), JSON.stringify(record))
     } catch {
       // The in-memory state remains safe when browser storage is unavailable.
     }
-  }
+  }, [product.id, storage])
 
-  function clearPersisted() {
+  const clearPersisted = useCallback(() => {
     try {
       storage?.removeItem(storageKey(product.id))
     } catch {
       // Nothing else is required when browser storage is unavailable.
     }
-  }
+  }, [product.id, storage])
+
+  const applyVerification = useCallback((
+    record: PersistedCheckout,
+    verification: PaymentVerificationResponse,
+  ) => {
+    const transactionHash = verification.transactionHash ?? record.transactionHash
+    if (verification.state === 'verified' && transactionHash) {
+      clearPersisted()
+      setState({ status: 'confirmed', intent: record.intent, transactionHash })
+      return
+    }
+
+    if (verification.state === 'rejected') {
+      clearPersisted()
+      if (verification.reason === 'intent_inactive' && !transactionHash) {
+        setState({ status: 'error', message: 'The previous unpaid checkout expired. You can prepare a fresh checkout.' })
+        return
+      }
+      setState({
+        status: 'blocked',
+        message: 'This payment could not be verified against the signed checkout. Contact the merchant before sending any other payment.',
+      })
+      return
+    }
+
+    const updated: PersistedCheckout = transactionHash
+      ? { intent: record.intent, stage: 'submitted', transactionHash }
+      : { intent: record.intent, stage: 'awaiting_wallet' }
+    persist(updated)
+    setState(transactionHash
+      ? { status: 'submitted', message: pendingMessage(verification), record: updated }
+      : { status: 'uncertain', message: pendingMessage(verification), record: updated })
+  }, [clearPersisted, persist])
+
+  const requestVerification = useCallback(async (
+    record: PersistedCheckout,
+    sessionToken: string,
+  ) => {
+    const response = await fetcher(`/api/payment-intents/${encodeURIComponent(record.intent.id)}/verification`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    })
+    if (!response.ok) throw new Error(await responseMessage(response, 'Payment status could not be checked.'))
+    applyVerification(record, PaymentVerificationResponseSchema.parse(await response.json()))
+  }, [applyVerification, fetcher])
 
   async function prepareCheckout() {
     if (inFlight.current) return
@@ -175,9 +224,11 @@ export function ProductCheckout({
         return
       }
       if (intent.status !== 'pending') {
+        const record: PersistedCheckout = { intent, stage: 'awaiting_wallet' }
+        persist(record)
         setState({
           status: 'uncertain',
-          intent,
+          record,
           message: intent.status === 'confirmed'
             ? 'This payment is already confirmed. Passport settlement is continuing.'
             : 'An earlier payment attempt must be reconciled before another payment.',
@@ -213,8 +264,23 @@ export function ProductCheckout({
         return
       }
       const submission = PaymentSubmissionResponseSchema.parse(await response.json())
-      persist({ intent: active.intent, stage: 'submitted', transactionHash: submission.transactionHash })
-      setState({ status: 'submitted', intent: active.intent, transactionHash: submission.transactionHash })
+      const record: PersistedCheckout = {
+        intent: active.intent,
+        stage: 'submitted',
+        transactionHash: submission.transactionHash,
+      }
+      persist(record)
+      setState({
+        status: 'submitted',
+        message: 'NimTrace has the transaction hash and is checking independent network finality.',
+        record,
+      })
+      try {
+        await requestVerification(record, active.sessionToken)
+      } catch {
+        // The scheduled reconciler and explicit status check use the same
+        // settlement path, so a provider outage never asks the buyer to repay.
+      }
     } catch {
       setState({
         status: 'retry_submission',
@@ -261,7 +327,7 @@ export function ProductCheckout({
         if (['REQUEST_TIMEOUT', 'NETWORK_FAILURE', 'CONFIRMATION_DELAYED', 'UNKNOWN'].includes(payment.error.code)) {
           setState({
             status: 'uncertain',
-            intent: active.intent,
+            record: { intent: active.intent, stage: 'awaiting_wallet' },
             message: `${payment.error.message} Do not pay again while the transaction tag is reconciled.`,
           })
         } else {
@@ -279,30 +345,56 @@ export function ProductCheckout({
     }
   }
 
-  async function resumeSubmission(record: PersistedCheckout) {
-    if (!record.transactionHash || inFlight.current) return
+  const reconcileExisting = useCallback(async (record: PersistedCheckout) => {
+    if (inFlight.current) return
     inFlight.current = true
-    setState({ status: 'authenticating' })
+    setState({ status: 'reconciling', record })
     try {
       const authentication = await authenticate()
       if (authentication.status !== 'success') {
         setState(authentication.status === 'cancelled'
-          ? { status: 'resumable', record }
-          : { status: 'error', message: authentication.error.message })
+          ? { status: 'resumable', message: 'Reconnect the buyer wallet to check this payment safely.', record }
+          : { status: 'resumable', message: authentication.error.message, record })
         return
       }
       if (authentication.session.walletAddress !== record.intent.buyerAddress) {
-        setState({ status: 'error', message: 'Reconnect the buyer wallet that started this payment.' })
+        setState({ status: 'resumable', message: 'Reconnect the buyer wallet that started this payment.', record })
         return
       }
-      await submitCaptured(
-        { intent: record.intent, sessionToken: authentication.session.sessionToken },
-        record.transactionHash,
-      )
+
+      let current = record
+      if (record.stage === 'hash_captured' && record.transactionHash) {
+        const response = await fetcher(`/api/payment-intents/${encodeURIComponent(record.intent.id)}/submissions`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${authentication.session.sessionToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ transactionHash: record.transactionHash }),
+        })
+        if (!response.ok) throw new Error(await responseMessage(response, 'The saved transaction hash could not be restored.'))
+        const submission = PaymentSubmissionResponseSchema.parse(await response.json())
+        current = { intent: record.intent, stage: 'submitted', transactionHash: submission.transactionHash }
+        persist(current)
+      }
+      await requestVerification(current, authentication.session.sessionToken)
+    } catch (error) {
+      setState({
+        status: 'resumable',
+        message: error instanceof Error ? error.message : 'Payment status could not be checked.',
+        record,
+      })
     } finally {
       inFlight.current = false
     }
-  }
+  }, [authenticate, fetcher, persist, requestVerification])
+
+  useEffect(() => {
+    const restored = restoredCheckout(storage, product.id)
+    if (!restored) return
+    const timeout = window.setTimeout(() => void reconcileExisting(restored), 0)
+    return () => window.clearTimeout(timeout)
+  }, [product.id, reconcileExisting, storage])
 
   if (!wallet.isAvailable()) {
     return <div className="product-actions"><a className="button button--primary" href={deepLink}>Buy with NIM</a></div>
@@ -321,6 +413,7 @@ export function ProductCheckout({
       </div>
 
       {state.status === 'error' && <p className="checkout-error" role="alert">{state.message}</p>}
+      {state.status === 'blocked' && <p className="checkout-error" role="alert">{state.message}</p>}
 
       {(state.status === 'review' || state.status === 'paying') && (
         <section className="checkout-review" aria-labelledby="checkout-title">
@@ -350,6 +443,10 @@ export function ProductCheckout({
         <p className="checkout-status" role="status">Payment submitted by Nimiq Pay. Saving its transaction hash…</p>
       )}
 
+      {state.status === 'reconciling' && (
+        <p className="checkout-status" role="status">Checking the existing payment before another payment can be offered…</p>
+      )}
+
       {state.status === 'retry_submission' && (
         <section className="checkout-status" role="alert">
           <p>{state.message}</p>
@@ -361,15 +458,24 @@ export function ProductCheckout({
 
       {state.status === 'resumable' && (
         <section className="checkout-status" role="status">
-          <p>A transaction hash is saved on this device. Reconnect the buyer wallet to resume without paying again.</p>
-          <button className="button button--primary" type="button" onClick={() => void resumeSubmission(state.record)}>Resume payment</button>
+          <p>{state.message ?? 'An existing checkout is saved on this device. Reconnect the buyer wallet to check it without paying again.'}</p>
+          <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
         </section>
       )}
 
       {state.status === 'submitted' && (
         <section className="checkout-status checkout-status--submitted" role="status">
           <strong>Payment submitted</strong>
-          <p>NimTrace has the transaction hash and is waiting for independent network verification. This is not yet a completed purchase.</p>
+          <p>{state.message} This is not yet a completed purchase.</p>
+          <code>{state.record.transactionHash}</code>
+          <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
+        </section>
+      )}
+
+      {state.status === 'confirmed' && (
+        <section className="checkout-status checkout-status--submitted" role="status">
+          <strong>Payment confirmed</strong>
+          <p>Independent network verification is final. Passport settlement can now continue.</p>
           <code>{state.transactionHash}</code>
         </section>
       )}
@@ -378,7 +484,8 @@ export function ProductCheckout({
         <section className="checkout-status checkout-status--delayed" role="alert">
           <strong>Payment result delayed</strong>
           <p>{state.message}</p>
-          <code>{state.intent.transactionData}</code>
+          <code>{state.record.intent.transactionData}</code>
+          <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
         </section>
       )}
     </>
