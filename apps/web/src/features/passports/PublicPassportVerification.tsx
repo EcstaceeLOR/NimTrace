@@ -111,7 +111,7 @@ export function PublicPassportVerification({
           {passport.status === 'suspended' && <p className="verification-suspended">This passport is suspended. Its evidence remains visible, but it must not be transferred or used for warranty service.</p>}
         </div>
         <div className="verification-qr-card">
-          {qrCode ? <img src={qrCode} alt="Shareable public passport verification QR code" /> : <span className="verification-qr-placeholder" />}
+          {qrCode ? <img src={qrCode} alt="Shareable public passport verification QR code" loading="lazy" decoding="async" /> : <span className="verification-qr-placeholder" />}
           <strong>Scan to verify</strong>
           <button type="button" onClick={() => window.print()}>Print QR</button>
         </div>

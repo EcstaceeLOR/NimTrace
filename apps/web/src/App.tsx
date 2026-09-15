@@ -8,6 +8,7 @@ import { PassportCollection } from './features/passports/PassportCollection'
 import { PublicPassportVerification } from './features/passports/PublicPassportVerification'
 import { TransferAcceptance } from './features/passports/TransferAcceptance'
 import { MerchantPresentation } from './features/passports/MerchantPresentation'
+import { applyAppLanguage } from './lib/i18n'
 
 type ApiState =
   | { status: 'checking' }
@@ -30,6 +31,10 @@ export function App() {
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)
   const presentationRoute = /^\/presentations\/([^/]+)\/?$/.exec(window.location.pathname)
+
+  useEffect(() => {
+    applyAppLanguage()
+  }, [])
 
   useEffect(() => {
     if (productRoute?.[1] || passportRoute?.[1] || transferRoute?.[1] || presentationRoute?.[1]) return
