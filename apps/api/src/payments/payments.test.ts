@@ -6,6 +6,7 @@ import {
   IssuedPassportResponseSchema,
   PassportCollectionResponseSchema,
   PassportDetailSchema,
+  PublicPassportVerificationSchema,
   ProductIssuanceChallengeResponseSchema,
   PaymentSubmissionResponseSchema,
   PaymentVerificationResponseSchema,
@@ -354,7 +355,7 @@ describe('buyer-bound purchase intents', () => {
     expect((await submitIntent(intent.id, transactionHash)).status).toBe(200)
 
     const chainTimestamp = Date.parse(intent.createdAt) + 1_000
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+    const chainRpcResponse = JSON.stringify({
       jsonrpc: '2.0',
       result: {
         data: {
@@ -374,7 +375,10 @@ describe('buyer-bound purchase intents', () => {
         },
         metadata: null,
       },
-    }), { status: 200 }))
+    })
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(
+      async () => new Response(chainRpcResponse, { status: 200 }),
+    )
     vi.stubGlobal('fetch', fetcher)
 
     const verifiedResponse = await app.request(
@@ -504,6 +508,44 @@ describe('buyer-bound purchase intents', () => {
       productProofHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       purchaseTransactionHash: transactionHash,
     })
+
+    const publicResponse = await app.request(`/api/passports/${passport.id}/verification`, {}, {
+      DB: db,
+      NIMIQ_NETWORK: 'test-albatross',
+      NIMIQ_RPC_FALLBACK_URL: '',
+      NIMIQ_RPC_PRIMARY_URL: 'https://primary.example/rpc',
+    })
+    expect(publicResponse.status).toBe(200)
+    expect(publicResponse.headers.get('Cache-Control')).toContain('stale-while-revalidate=60')
+    const publicPassport = PublicPassportVerificationSchema.parse(await publicResponse.json())
+    expect(publicPassport).toMatchObject({
+      eventChain: { eventCount: 1, state: 'verified' },
+      id: passport.id,
+      overallState: 'verified',
+      ownership: { state: 'verified' },
+      product: { state: 'verified', version: 1 },
+      purchase: { state: 'verified', transactionHash },
+    })
+    expect(publicPassport.ownership.maskedCurrentOwner).not.toContain(buyerAddress.replaceAll(' ', ''))
+    expect(publicPassport.eventChain.events[0]).not.toHaveProperty('actorAddress')
+    expect(new URL(publicPassport.publicUrl).search).toBe('')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+
+    fetcher.mockRejectedValueOnce(new Error('RPC unavailable'))
+    const partialResponse = await app.request(`/api/passports/${passport.id}/verification`, {}, {
+      DB: db,
+      NIMIQ_NETWORK: 'test-albatross',
+      NIMIQ_RPC_FALLBACK_URL: '',
+      NIMIQ_RPC_PRIMARY_URL: 'https://primary.example/rpc',
+    })
+    const partialPassport = PublicPassportVerificationSchema.parse(await partialResponse.json())
+    expect(partialPassport).toMatchObject({
+      eventChain: { state: 'verified' },
+      overallState: 'partially_verified',
+      product: { state: 'verified' },
+      purchase: { reason: 'provider_unavailable', state: 'partial' },
+    })
+    expect(partialPassport.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
 
     database.prepare(`
       UPDATE passports SET current_owner_address = ?, version = version + 1, updated_at = ?

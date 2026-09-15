@@ -5,6 +5,7 @@ import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
 import { PublicProductPage } from './features/products/PublicProductPage'
 import { PassportCollection } from './features/passports/PassportCollection'
+import { PublicPassportVerification } from './features/passports/PublicPassportVerification'
 
 type ApiState =
   | { status: 'checking' }
@@ -24,8 +25,10 @@ export function App() {
   const [wallet, setWallet] = useState<WalletState>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
+  const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
 
   useEffect(() => {
+    if (productRoute?.[1] || passportRoute?.[1]) return
     const controller = new AbortController()
 
     async function checkHealth() {
@@ -41,7 +44,7 @@ export function App() {
 
     void checkHealth()
     return () => controller.abort()
-  }, [])
+  }, [passportRoute, productRoute])
 
   async function viewPassports() {
     if (!nimiqPayWallet.isAvailable()) {
@@ -93,6 +96,10 @@ export function App() {
 
   if (productRoute?.[1]) {
     return <PublicProductPage productId={decodeURIComponent(productRoute[1])} />
+  }
+
+  if (passportRoute?.[1]) {
+    return <PublicPassportVerification passportId={decodeURIComponent(passportRoute[1])} />
   }
 
   if (wallet.status === 'connected' && !showIssuer) {

@@ -345,6 +345,16 @@ export interface PassportEventRecord {
   type: 'issued' | 'transferred' | 'repaired' | 'warranty_claimed' | 'corrected' | 'retired'
 }
 
+export interface PassportAuditEventRecord extends PassportEventRecord {
+  canonicalPayload: string
+  payloadHash: string
+}
+
+interface PassportAuditEventRow extends PassportEventRow {
+  canonical_payload: string
+  payload_hash: string
+}
+
 interface PassportEventRow {
   actor_address: string
   created_at: string
@@ -468,6 +478,84 @@ export async function listPassportEvents(db: D1Database, passportId: string): Pr
     actorAddress: row.actor_address,
     createdAt: row.created_at,
     eventHash: row.event_hash,
+    previousEventHash: row.previous_event_hash,
+    sequence: row.sequence,
+    type: row.type,
+  }))
+}
+
+export async function findPublicPassportDetail(
+  db: D1Database,
+  passportId: string,
+): Promise<PassportDetailRecord | null> {
+  const row = await db.prepare(`
+    SELECT
+      passports.id,
+      passports.product_id,
+      passports.product_version,
+      passports.current_owner_address,
+      passports.purchase_intent_id,
+      passports.warranty_started_at,
+      passports.warranty_expires_at,
+      passports.head_event_hash,
+      passports.status,
+      products.title AS product_title,
+      products.description,
+      products.image_key,
+      products.issuer_address,
+      products.warranty_duration_days,
+      products.warranty_summary,
+      payment_intents.transaction_hash AS purchase_transaction_hash,
+      payment_intents.confirmed_block_height AS purchase_block_height,
+      payment_intents.confirmed_at AS purchase_confirmed_at,
+      passport_events.created_at AS issued_at,
+      'current' AS ownership
+    FROM passports
+    JOIN products ON products.id = passports.product_id
+    JOIN payment_intents ON payment_intents.id = passports.purchase_intent_id
+    JOIN passport_events ON passport_events.passport_id = passports.id AND passport_events.sequence = 1
+    WHERE passports.id = ?
+  `).bind(passportId).first<PassportDetailRow>()
+  if (!row) return null
+  return {
+    currentOwnerAddress: row.current_owner_address,
+    description: row.description,
+    headEventHash: row.head_event_hash,
+    id: row.id,
+    imageKey: row.image_key,
+    issuerAddress: row.issuer_address,
+    issuedAt: row.issued_at,
+    ownership: row.ownership,
+    productId: row.product_id,
+    productTitle: row.product_title,
+    productVersion: row.product_version,
+    purchaseBlockHeight: row.purchase_block_height,
+    purchaseConfirmedAt: row.purchase_confirmed_at,
+    purchaseIntentId: row.purchase_intent_id,
+    purchaseTransactionHash: row.purchase_transaction_hash,
+    status: row.status,
+    warrantyDurationDays: row.warranty_duration_days,
+    warrantyExpiresAt: row.warranty_expires_at,
+    warrantyStartedAt: row.warranty_started_at,
+    warrantySummary: row.warranty_summary,
+  }
+}
+
+export async function listPassportAuditEvents(
+  db: D1Database,
+  passportId: string,
+): Promise<PassportAuditEventRecord[]> {
+  const result = await db.prepare(`
+    SELECT sequence, type, previous_event_hash, canonical_payload, payload_hash,
+      event_hash, actor_address, created_at
+    FROM passport_events WHERE passport_id = ? ORDER BY sequence
+  `).bind(passportId).all<PassportAuditEventRow>()
+  return result.results.map((row) => ({
+    actorAddress: row.actor_address,
+    canonicalPayload: row.canonical_payload,
+    createdAt: row.created_at,
+    eventHash: row.event_hash,
+    payloadHash: row.payload_hash,
     previousEventHash: row.previous_event_hash,
     sequence: row.sequence,
     type: row.type,

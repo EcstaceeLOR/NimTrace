@@ -164,6 +164,20 @@ describe('bounded read-only RPC lookup', () => {
     expect(fetcher).toHaveBeenCalledTimes(RPC_ATTEMPTS_PER_PROVIDER * 2)
   })
 
+  it('supports the public verification one-attempt latency budget', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockRejectedValue(new Error('offline'))
+    const client = new NimiqRpcClient({
+      attemptsPerProvider: 1,
+      fallbackUrl: 'https://fallback.example/rpc',
+      fetcher,
+      primaryUrl: 'https://primary.example/rpc',
+      timeoutMs: 750,
+    })
+
+    await expect(client.getTransaction('a'.repeat(64))).resolves.toEqual({ status: 'unavailable' })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
   it('discovers address history through the fixed read-only RPC method and bounded limit', async () => {
     const transaction = basicFixture.transaction as Record<string, unknown>
     const fetcher = vi.fn<typeof fetch>()

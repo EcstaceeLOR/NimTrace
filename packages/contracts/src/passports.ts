@@ -94,3 +94,61 @@ export const PassportCollectionResponseSchema = z.object({
 export type PassportSummary = z.infer<typeof PassportSummarySchema>
 export type PassportDetail = z.infer<typeof PassportDetailSchema>
 export type PassportCollectionResponse = z.infer<typeof PassportCollectionResponseSchema>
+
+export const PublicPassportOverallStateSchema = z.enum([
+  'verified',
+  'partially_verified',
+  'unverified',
+  'merchant_claim',
+])
+
+const PublicEvidenceStateSchema = z.enum(['verified', 'partial', 'unverified', 'claim'])
+
+export const PublicPassportEventSchema = PassportEventSummarySchema.omit({ actorAddress: true }).extend({
+  maskedActor: z.string().min(8).max(32),
+}).strict()
+
+export const PublicPassportVerificationSchema = z.object({
+  checkedAt: z.iso.datetime(),
+  eventChain: z.object({
+    eventCount: z.number().int().positive().safe(),
+    events: z.array(PublicPassportEventSchema).min(1),
+    headEventHash: hashSchema,
+    state: PublicEvidenceStateSchema,
+  }).strict(),
+  id: idSchema,
+  merchantClaims: z.object({
+    description: z.string().max(4000),
+    warrantySummary: z.string().min(1).max(1000),
+  }).strict(),
+  overallState: PublicPassportOverallStateSchema,
+  ownership: z.object({
+    maskedCurrentOwner: z.string().min(8).max(32),
+    state: PublicEvidenceStateSchema,
+  }).strict(),
+  product: z.object({
+    imageUrl: z.string().min(1).max(2048),
+    issuerAddress: z.string().min(8).max(64),
+    payloadHash: hashSchema,
+    state: PublicEvidenceStateSchema,
+    title: z.string().min(1).max(120),
+    version: z.number().int().positive(),
+  }).strict(),
+  publicUrl: z.string().url(),
+  purchase: z.object({
+    blockHeight: z.number().int().nonnegative().safe(),
+    confirmedAt: z.iso.datetime(),
+    reason: z.string().min(1).max(80),
+    state: PublicEvidenceStateSchema,
+    transactionHash: hashSchema,
+  }).strict(),
+  status: z.enum(['active', 'transfer_pending', 'suspended', 'retired']),
+  warranty: z.object({
+    daysRemaining: z.number().int().nonnegative().safe(),
+    expiresAt: z.iso.datetime(),
+    startedAt: z.iso.datetime(),
+    state: z.enum(['active', 'expired', 'none']),
+  }).strict(),
+}).strict()
+
+export type PublicPassportVerification = z.infer<typeof PublicPassportVerificationSchema>
