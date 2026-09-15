@@ -23,7 +23,13 @@ import {
   verifyPaymentIntent,
 } from './payments/service'
 import { NimiqRpcClient, communityRpcUrl } from './payments/rpc'
-import { PassportIssuanceError, issuePassportForConfirmedPurchase } from './passports/service'
+import {
+  PassportCollectionError,
+  PassportIssuanceError,
+  getWalletPassport,
+  issuePassportForConfirmedPurchase,
+  listWalletPassports,
+} from './passports/service'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -228,6 +234,29 @@ app.post('/api/payment-intents/:intentId/completion', async (c) => {
   return c.json(passport, 200, { 'Cache-Control': 'no-store' })
 })
 
+app.get('/api/passports', async (c) => {
+  const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const passports = await listWalletPassports(
+    c.env.DB,
+    walletAddress,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+    c.req.query('includeHistory') === 'true',
+  )
+  return c.json(passports, 200, { 'Cache-Control': 'no-store' })
+})
+
+app.get('/api/passports/:passportId', async (c) => {
+  const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const passport = await getWalletPassport(
+    c.env.DB,
+    c.req.param('passportId'),
+    walletAddress,
+    networkFromEnvironment(c.env.NIMIQ_NETWORK),
+    new URL(c.req.url).origin,
+  )
+  return c.json(passport, 200, { 'Cache-Control': 'no-store' })
+})
+
 app.get('/api/products/:productId', async (c) => {
   const versionValue = c.req.query('version')
   const version = versionValue === undefined ? undefined : Number(versionValue)
@@ -292,6 +321,9 @@ app.get('/api/product-images', async (c) => {
 app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 404))
 
 app.onError((error, c) => {
+  if (error instanceof PassportCollectionError) {
+    return c.json({ error: 'passport_not_found', message: error.message }, 404)
+  }
   if (error instanceof PassportIssuanceError) {
     return c.json({ error: error.code, message: error.message, recoverable: error.status !== 500 }, error.status)
   }

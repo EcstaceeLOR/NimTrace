@@ -3,15 +3,26 @@ import {
   canonicalJson,
   canonicalPayload,
   sha256Hex,
+  PassportCollectionResponseSchema,
+  PassportDetailSchema,
+  PassportSummarySchema,
   type IssuedPassportEventPayload,
   type IssuedPassportResponse,
+  type NimiqNetwork,
+  type PassportSummary,
 } from '@nimtrace/contracts'
 import { randomToken } from '../auth/crypto'
+import { DEMO_IMAGE_KEY } from '../images/service'
+import { getPublicProduct } from '../products/public'
 import {
   createPassportIssuanceBatch,
   findIssuedPassportByIntent,
   findPassportIssuanceMaterial,
   passportResponse,
+  findWalletPassportDetail,
+  listPassportEvents,
+  listWalletPassportAccess,
+  type PassportDetailRecord,
   type StoredIssuedPassport,
 } from './repository'
 
@@ -30,6 +41,8 @@ export class PassportIssuanceError extends Error {
     super(message)
   }
 }
+
+export class PassportCollectionError extends Error {}
 
 function eventHashInput(
   passportId: string,
@@ -182,4 +195,95 @@ export async function issuePassportForConfirmedPurchase(
   }
 
   return verifiedResponse(db, intentId)
+}
+
+function warrantyProjection(record: PassportDetailRecord, now: Date) {
+  if (record.warrantyDurationDays === 0) {
+    return { warrantyDaysRemaining: 0, warrantyState: 'none' as const }
+  }
+  const remaining = Math.max(0, Math.ceil((Date.parse(record.warrantyExpiresAt) - now.getTime()) / 86_400_000))
+  return {
+    warrantyDaysRemaining: remaining,
+    warrantyState: remaining > 0 ? 'active' as const : 'expired' as const,
+  }
+}
+
+async function passportProjection(
+  db: D1Database,
+  record: PassportDetailRecord,
+  network: NimiqNetwork,
+  now: Date,
+): Promise<PassportSummary> {
+  const product = await getPublicProduct(db, record.productId, network, record.productVersion)
+  const auditRecord = await findIssuedPassportByIntent(db, record.purchaseIntentId)
+  const auditVerified = Boolean(auditRecord && await validateFirstPassportEvent(auditRecord))
+  const imageKey = record.imageKey ?? DEMO_IMAGE_KEY
+  return PassportSummarySchema.parse({
+    auditState: auditVerified && product.signatureState === 'verified' ? 'verified' : 'invalid',
+    currentOwnerAddress: record.currentOwnerAddress,
+    id: record.id,
+    imageUrl: imageKey === DEMO_IMAGE_KEY
+      ? '/demo-product.svg'
+      : `/api/product-images?key=${encodeURIComponent(imageKey)}`,
+    issuerAddress: record.issuerAddress,
+    issuedAt: record.issuedAt,
+    ownership: record.ownership,
+    productId: record.productId,
+    productTitle: product.title,
+    productVersion: record.productVersion,
+    recentlyIssued: record.ownership === 'current'
+      && now.getTime() >= Date.parse(record.issuedAt)
+      && now.getTime() - Date.parse(record.issuedAt) < 10 * 60_000,
+    status: record.status,
+    warrantyExpiresAt: record.warrantyExpiresAt,
+    ...warrantyProjection(record, now),
+  })
+}
+
+export async function listWalletPassports(
+  db: D1Database,
+  walletAddress: string,
+  network: NimiqNetwork,
+  includeHistory = false,
+  now = new Date(),
+) {
+  const access = await listWalletPassportAccess(db, walletAddress, includeHistory)
+  const items: PassportSummary[] = []
+  for (const item of access) {
+    const record = await findWalletPassportDetail(db, item.id, walletAddress)
+    if (record) items.push(await passportProjection(db, record, network, now))
+  }
+  return PassportCollectionResponseSchema.parse({ items })
+}
+
+export async function getWalletPassport(
+  db: D1Database,
+  passportId: string,
+  walletAddress: string,
+  network: NimiqNetwork,
+  origin: string,
+  now = new Date(),
+) {
+  const record = await findWalletPassportDetail(db, passportId, walletAddress)
+  if (!record) throw new PassportCollectionError('Passport not found.')
+  const summary = await passportProjection(db, record, network, now)
+  const signedProduct = await getPublicProduct(db, record.productId, network, record.productVersion)
+  const events = await listPassportEvents(db, passportId)
+  return PassportDetailSchema.parse({
+    ...summary,
+    description: signedProduct.description,
+    events,
+    headEventHash: record.headEventHash,
+    ownerActions: record.ownership === 'current' && record.status === 'active'
+      ? summary.warrantyState === 'active' ? ['transfer', 'present_warranty'] : ['transfer']
+      : [],
+    productProofHash: (await findIssuedPassportByIntent(db, record.purchaseIntentId))!.productPayloadHash,
+    publicUrl: `${origin}/passports/${encodeURIComponent(passportId)}`,
+    purchaseBlockHeight: record.purchaseBlockHeight,
+    purchaseConfirmedAt: record.purchaseConfirmedAt,
+    purchaseIntentId: record.purchaseIntentId,
+    purchaseTransactionHash: record.purchaseTransactionHash,
+    warrantyStartedAt: record.warrantyStartedAt,
+    warrantySummary: signedProduct.warrantySummary,
+  })
 }
