@@ -6,9 +6,11 @@ export interface TransferIntentRecord {
   id: string
   ownerOfferPublicKey: string | null
   ownerOfferSignature: string
+  paymentIntentId: string | null
   passportId: string
   passportVersion: number
-  priceLuna: 0
+  priceLuna: number
+  transactionData: string | null
   recipientAcceptancePublicKey: string | null
   recipientAcceptanceSignature: string | null
   resultingEventId: string | null
@@ -42,9 +44,11 @@ interface TransferIntentRow {
   id: string
   owner_offer_public_key: string | null
   owner_offer_signature: string
+  payment_intent_id: string | null
   passport_id: string
   passport_version: number
-  price_luna: 0
+  price_luna: number
+  transaction_data: string | null
   recipient_acceptance_public_key: string | null
   recipient_acceptance_signature: string | null
   resulting_event_id: string | null
@@ -59,9 +63,11 @@ function transfer(row: TransferIntentRow): TransferIntentRecord {
     id: row.id,
     ownerOfferPublicKey: row.owner_offer_public_key,
     ownerOfferSignature: row.owner_offer_signature,
+    paymentIntentId: row.payment_intent_id,
     passportId: row.passport_id,
     passportVersion: row.passport_version,
-    priceLuna: 0,
+    priceLuna: row.price_luna,
+    transactionData: row.transaction_data,
     recipientAcceptancePublicKey: row.recipient_acceptance_public_key,
     recipientAcceptanceSignature: row.recipient_acceptance_signature,
     resultingEventId: row.resulting_event_id,
@@ -74,7 +80,8 @@ export async function findTransferIntent(db: D1Database, id: string) {
   const row = await db.prepare(`
     SELECT id, passport_id, from_address, to_address, price_luna, expires_at,
       owner_offer_signature, owner_offer_public_key, recipient_acceptance_signature,
-      recipient_acceptance_public_key, passport_version, resulting_event_id, status
+      recipient_acceptance_public_key, passport_version, resulting_event_id, status,
+      payment_intent_id, (SELECT transaction_data FROM payment_intents WHERE id = transfer_intents.payment_intent_id) AS transaction_data
     FROM transfer_intents WHERE id = ?
   `).bind(id).first<TransferIntentRow>()
   return row ? transfer(row) : null
@@ -126,19 +133,8 @@ export async function createCompletedTransfer(
       WHERE id = ? AND current_owner_address = (SELECT from_address FROM transfer_intents WHERE id = ?)
         AND version = (SELECT passport_version FROM transfer_intents WHERE id = ?)
         AND status = 'active'
-        AND EXISTS (SELECT 1 FROM transfer_intents WHERE id = ? AND status = 'pending_recipient')
+        AND EXISTS (SELECT 1 FROM transfer_intents WHERE id = ? AND status = 'accepted')
     `).bind(input.actorAddress, input.createdAt, input.passportId, input.transferId, input.transferId, input.transferId),
-    db.prepare(`
-      UPDATE transfer_intents SET status = 'accepted', recipient_acceptance_signature = ?,
-        recipient_acceptance_public_key = ?, updated_at = ?
-      WHERE id = ? AND status = 'pending_recipient' AND expires_at > ?
-        AND EXISTS (
-          SELECT 1 FROM passports
-          WHERE passports.id = transfer_intents.passport_id
-            AND passports.current_owner_address = transfer_intents.to_address
-            AND passports.version = transfer_intents.passport_version + 1
-        )
-    `).bind(input.actorSignature, input.actorPublicKey, input.createdAt, input.transferId, input.createdAt),
     db.prepare(`
       INSERT INTO passport_events (
         id, passport_id, sequence, type, previous_event_hash, canonical_payload,
@@ -167,4 +163,17 @@ export async function createCompletedTransfer(
       WHERE id = ? AND status = 'accepted'
     `).bind(input.eventId, input.createdAt, input.transferId),
   ])
+}
+
+export async function recordAcceptedTransfer(
+  db: D1Database,
+  input: { intentId: string; publicKey: string; signature: string; updatedAt: string },
+) {
+  const result = await db.prepare(`
+    UPDATE transfer_intents
+    SET status = 'accepted', recipient_acceptance_signature = ?,
+      recipient_acceptance_public_key = ?, updated_at = ?
+    WHERE id = ? AND status = 'pending_recipient' AND expires_at > ?
+  `).bind(input.signature, input.publicKey, input.updatedAt, input.intentId, input.updatedAt).run()
+  return (result.meta.changes ?? 0) === 1
 }

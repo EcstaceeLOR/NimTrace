@@ -73,6 +73,7 @@ function PassportCard({ passport, onOpen }: { passport: PassportSummary; onOpen:
 function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetcher: typeof fetch; passport: PassportDetail; onClose: () => void; sessionToken: string }) {
   const [qrCode, setQrCode] = useState<string>()
   const [recipient, setRecipient] = useState('')
+  const [priceLuna, setPriceLuna] = useState('0')
   const [transferState, setTransferState] = useState<'closed' | 'form' | 'signing' | 'success' | 'error'>('closed')
   const [transferMessage, setTransferMessage] = useState('')
   const [transferId, setTransferId] = useState('')
@@ -93,7 +94,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
     try {
       const challengeResponse = await fetcher(`/api/passports/${encodeURIComponent(passport.id)}/transfer-intents`, {
         method: 'POST', headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipientAddress: recipient }),
+        body: JSON.stringify({ priceLuna: Math.max(0, Number(priceLuna) || 0), recipientAddress: recipient }),
       })
       if (!challengeResponse.ok) throw new Error('The transfer offer could not be prepared.')
       const challenge = TransferProofChallengeResponseSchema.parse(await challengeResponse.json())
@@ -179,6 +180,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
           <p className="eyebrow">RECIPIENT-BOUND GIFT</p><h2 id="transfer-title">Gift this passport</h2>
           <p>The recipient wallet will need to review the complete passport and sign acceptance. No NIM moves.</p>
           <label>Recipient wallet address<input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="NQ…" autoComplete="off" /></label>
+          <label>Resale price in Luna (0 = gift)<input inputMode="numeric" min="0" step="1" type="number" value={priceLuna} onChange={(event) => setPriceLuna(event.target.value)} /></label>
           <div className="passport-owner-actions"><button className="button button--primary" type="button" disabled={!recipient.trim()} onClick={() => void createTransferOffer()}>Review and sign offer</button><button className="button button--secondary" type="button" onClick={() => setTransferState('closed')}>Cancel</button></div>
         </div>
       )}
