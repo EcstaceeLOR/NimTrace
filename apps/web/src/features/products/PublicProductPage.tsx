@@ -83,7 +83,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
       </nav>
 
       <section className="public-product-grid">
-        <div className="public-product-image"><img src={product.imageUrl} alt={product.title} /></div>
+        <div className="public-product-image"><img src={product.imageUrl} alt={product.title} decoding="async" fetchPriority="high" /></div>
         <article className="public-product-card">
           <p className={`product-state product-state--${product.state}`}>{status.label}</p>
           <h1>{product.title}</h1>
@@ -117,7 +117,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
           <code>{product.proofHash.slice(0, 20)}…</code>
           <button className="print-link" type="button" onClick={() => window.print()}>Print verification QR</button>
         </div>
-        {qrCode && <img className="product-qr" src={qrCode} alt={`QR code for ${product.title} verification`} />}
+        {qrCode && <img className="product-qr" src={qrCode} alt={`QR code for ${product.title} verification`} loading="lazy" decoding="async" />}
       </section>
     </main>
   )

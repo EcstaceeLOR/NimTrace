@@ -50,7 +50,7 @@ function PassportCard({ passport, onOpen }: { passport: PassportSummary; onOpen:
   return (
     <article className={`owned-passport-card owned-passport-card--${passport.status}${passport.recentlyIssued ? ' owned-passport-card--arriving' : ''}`}>
       {passport.recentlyIssued && <span className="passport-arrival">Added to your wallet</span>}
-      <img src={passport.imageUrl} alt="" />
+      <img src={passport.imageUrl} alt="" loading="lazy" decoding="async" />
       <div className="owned-passport-card__body">
         <div className="owned-passport-card__meta">
           <span className={`passport-trust passport-trust--${passport.auditState}`}>
@@ -145,7 +145,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
             <span>{passport.ownership === 'current' ? 'Current owner' : 'Historical read-only view'}</span>
           </div>
         </div>
-        {qrCode && <img className="passport-detail__qr" src={qrCode} alt="Public passport verification QR code" />}
+        {qrCode && <img className="passport-detail__qr" src={qrCode} alt="Public passport verification QR code" loading="lazy" decoding="async" />}
       </header>
 
       {passport.ownership === 'former' && (
