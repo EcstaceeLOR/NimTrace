@@ -19,7 +19,9 @@ import {
   PaymentIntentServiceError,
   createInitialPurchaseIntent,
   recordPaymentSubmission,
+  verifyPaymentIntent,
 } from './payments/service'
+import { NimiqRpcClient, communityRpcUrl } from './payments/rpc'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -33,6 +35,8 @@ interface Bindings {
   DB: D1Database
   ENVIRONMENT?: string
   NIMIQ_NETWORK?: string
+  NIMIQ_RPC_FALLBACK_URL?: string
+  NIMIQ_RPC_PRIMARY_URL?: string
   PRODUCT_IMAGES?: R2Bucket
 }
 
@@ -190,6 +194,21 @@ app.post('/api/payment-intents/:intentId/submissions', async (c) => {
     payload.data.transactionHash,
   )
   return c.json(submission, 200, { 'Cache-Control': 'no-store' })
+})
+
+app.get('/api/payment-intents/:intentId/verification', async (c) => {
+  const buyerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const network = networkFromEnvironment(c.env.NIMIQ_NETWORK)
+  const verification = await verifyPaymentIntent(
+    c.env.DB,
+    c.req.param('intentId'),
+    buyerAddress,
+    new NimiqRpcClient({
+      fallbackUrl: c.env.NIMIQ_RPC_FALLBACK_URL ?? communityRpcUrl(network),
+      primaryUrl: c.env.NIMIQ_RPC_PRIMARY_URL,
+    }),
+  )
+  return c.json(verification, 200, { 'Cache-Control': 'no-store' })
 })
 
 app.get('/api/products/:productId', async (c) => {

@@ -1,20 +1,26 @@
 import {
   PaymentSubmissionResponseSchema,
+  PaymentVerificationResponseSchema,
   PurchaseIntentResponseSchema,
   type NimiqNetwork,
   type PaymentSubmissionResponse,
+  type PaymentVerificationResponse,
   type PurchaseIntentResponse,
 } from '@nimtrace/contracts'
 import { randomToken, sha256Hex } from '../auth/crypto'
 import { getPublicProduct } from '../products/public'
 import {
   expirePendingPurchaseIntents,
+  confirmPaymentIntent,
+  failPaymentIntent,
   findActiveInitialPurchaseIntent,
   findPaymentIntent,
   findPurchaseIntentByIdempotency,
   insertInitialPurchaseIntent,
   submitPaymentIntent,
 } from './repository'
+import type { NimiqRpcClient } from './rpc'
+import { verifyStoredPaymentIntent } from './verification'
 
 const PURCHASE_INTENT_TTL_MS = 10 * 60 * 1000
 const PURCHASE_TAG_PREFIX = 'NTP1:'
@@ -156,4 +162,51 @@ export async function recordPaymentSubmission(
     return submissionResponse(intentId, stored.intent.status, transactionHash)
   }
   return fail('payment_submission_conflict', 'The payment intent changed before submission was saved.', 409)
+}
+
+export async function verifyPaymentIntent(
+  db: D1Database,
+  intentId: string,
+  buyerAddress: string,
+  rpc: Pick<NimiqRpcClient, 'getTransaction'>,
+  now = new Date(),
+): Promise<PaymentVerificationResponse> {
+  let stored = await findPaymentIntent(db, intentId)
+  if (!stored || stored.intent.buyerAddress !== buyerAddress) {
+    return fail('payment_intent_not_found', 'This payment intent was not found.', 404)
+  }
+
+  const result = await verifyStoredPaymentIntent(stored, rpc, now)
+  let settled = true
+  if (result.state === 'verified'
+    && stored.intent.status === 'submitted'
+    && result.blockHeight !== null
+    && result.chainTimestamp) {
+    settled = await confirmPaymentIntent(
+      db,
+      intentId,
+      stored.transactionHash!,
+      result.blockHeight,
+      result.chainTimestamp,
+    )
+  } else if (result.state === 'rejected' && stored.intent.status === 'submitted') {
+    settled = await failPaymentIntent(db, intentId, `chain_${result.reason}`, now.toISOString())
+  }
+
+  if (!settled) {
+    // A concurrent verifier may have settled the same row first. Returning the
+    // recomputed stored result keeps repeated status checks idempotent.
+    stored = await findPaymentIntent(db, intentId)
+    if (stored) return PaymentVerificationResponseSchema.parse(await verifyStoredPaymentIntent(stored, rpc, now))
+  }
+  return PaymentVerificationResponseSchema.parse({
+    blockHeight: result.blockHeight,
+    checkedAt: result.checkedAt,
+    confirmations: result.confirmations,
+    finalityConfirmations: result.finalityConfirmations,
+    id: result.id,
+    reason: result.reason,
+    state: result.state,
+    transactionHash: result.transactionHash,
+  })
 }

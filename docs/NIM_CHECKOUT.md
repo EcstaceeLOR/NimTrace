@@ -39,7 +39,10 @@ Content-Type: application/json
 The authenticated endpoint binds the unique hash to the existing buyer intent
 and moves only from `pending` to `submitted`. It does not accept recipient,
 amount, tag, network, or a client-supplied paid flag, and it never marks the
-purchase confirmed. Independent chain verification is the next gate.
+purchase confirmed. The authenticated client polls the independent verification
+endpoint; only exact on-chain evidence can cross that gate. See
+[NIM_VERIFICATION.md](./NIM_VERIFICATION.md) for the checks, finality policy,
+retry behavior, and result states.
 
 A hash returned just after the intent display expiry is still preserved: the
 wallet may already have broadcast the payment. Later verification must compare

@@ -194,7 +194,8 @@ For every payment, the verifier checks:
 - recipient equals the intent seller;
 - amount equals the integer Luna amount stored in the intent;
 - transaction data contains the exact compact intent reference;
-- block/confirmation policy is satisfied;
+- at least 60 confirmations carry the transaction beyond the next Albatross
+  macro-block finality point;
 - intent has not expired or already settled;
 - authenticated buyer is related to the transaction where the RPC exposes the
   originating wallet through `relatedAddresses` or equivalent HTLC context.
