@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import { KeyPair } from '@nimiq/core'
 import {
+  IssuedPassportEventPayloadSchema,
+  IssuedPassportResponseSchema,
   ProductIssuanceChallengeResponseSchema,
   PaymentSubmissionResponseSchema,
   PaymentVerificationResponseSchema,
@@ -13,6 +15,8 @@ import { app } from '../index'
 import { sha256Hex } from '../auth/crypto'
 import { nimiqSignedMessageDigest } from '../auth/message'
 import { DEMO_IMAGE_HASH, DEMO_IMAGE_KEY } from '../images/service'
+import { findIssuedPassportByIntent } from '../passports/repository'
+import { validateFirstPassportEvent } from '../passports/service'
 import {
   confirmPaymentIntent,
   expirePendingPurchaseIntents,
@@ -26,6 +30,7 @@ const migrations = [
   '0002_wallet_auth_invariants.sql',
   '0003_product_issuance.sql',
   '0004_purchase_intents.sql',
+  '0005_passport_issuance.sql',
 ].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 
 class TestStatement {
@@ -207,6 +212,13 @@ describe('buyer-bound purchase intents', () => {
     }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
   }
 
+  function completeIntent(intentId: string, token = buyerToken) {
+    return app.request(`/api/payment-intents/${intentId}/completion`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }, { DB: db, NIMIQ_NETWORK: 'test-albatross' })
+  }
+
   it('derives and persists every payment value without client input', async () => {
     const productId = await publishProduct('BOUND-001')
     const response = await requestIntent(productId, 'purchase-attempt-0001')
@@ -307,6 +319,10 @@ describe('buyer-bound purchase intents', () => {
       await submitIntent(intent.id, transactionHash)
     ).json()).status).toBe('submitted')
 
+    const prematureCompletion = await completeIntent(intent.id)
+    expect(prematureCompletion.status).toBe(409)
+    expect(await prematureCompletion.json()).toMatchObject({ error: 'payment_not_confirmed' })
+
     const stored = database.prepare(`
       SELECT status, transaction_hash, confirmed_at, confirmed_block_height
       FROM payment_intents WHERE id = ?
@@ -385,6 +401,66 @@ describe('buyer-bound purchase intents', () => {
       status: 'confirmed',
     })
 
+    const firstCompletion = await completeIntent(intent.id)
+    const passport = IssuedPassportResponseSchema.parse(await firstCompletion.json())
+    const replayedCompletion = await completeIntent(intent.id)
+    expect(firstCompletion.status).toBe(200)
+    expect(IssuedPassportResponseSchema.parse(await replayedCompletion.json())).toEqual(passport)
+    const hiddenCompletion = await completeIntent(intent.id, otherBuyerToken)
+    expect(hiddenCompletion.status).toBe(404)
+    expect(passport).toMatchObject({
+      auditState: 'verified',
+      currentOwnerAddress: buyerAddress,
+      productId,
+      productVersion: 1,
+      purchaseBlockHeight: 123456,
+      purchaseIntentId: intent.id,
+      purchaseTransactionHash: transactionHash,
+      status: 'active',
+      warrantyStartedAt: new Date(chainTimestamp).toISOString(),
+    })
+    expect(Date.parse(passport.warrantyExpiresAt) - Date.parse(passport.warrantyStartedAt))
+      .toBe(365 * 86_400_000)
+    expect(database.prepare('SELECT COUNT(*) AS count FROM passports').get()).toEqual({ count: 1 })
+    expect(database.prepare('SELECT COUNT(*) AS count FROM passport_events').get()).toEqual({ count: 1 })
+    expect(database.prepare('SELECT status FROM products WHERE id = ?').get(productId)).toEqual({ status: 'sold' })
+
+    const event = database.prepare(`
+      SELECT canonical_payload, actor_address, actor_public_key, actor_signature,
+        payment_intent_id, previous_event_hash, sequence, type
+      FROM passport_events WHERE passport_id = ?
+    `).get(passport.id) as Record<string, unknown>
+    expect(event).toMatchObject({
+      actor_address: sellerAddress,
+      payment_intent_id: intent.id,
+      previous_event_hash: null,
+      sequence: 1,
+      type: 'issued',
+    })
+    const productProof = database.prepare(`
+      SELECT issuer_public_key, issuer_signature FROM product_versions
+      WHERE product_id = ? AND version = 1
+    `).get(productId) as Record<string, unknown>
+    expect(event.actor_public_key).toBe(productProof.issuer_public_key)
+    expect(event.actor_signature).toBe(productProof.issuer_signature)
+    const eventWrapper = JSON.parse(String(event.canonical_payload)) as { data: unknown }
+    expect(IssuedPassportEventPayloadSchema.parse(eventWrapper.data)).toMatchObject({
+      ownerAddress: buyerAddress,
+      payment: { blockHeight: 123456, intentId: intent.id, transactionHash },
+      product: { id: productId, version: 1 },
+    })
+
+    const storedPassport = await findIssuedPassportByIntent(db, intent.id)
+    expect(storedPassport && await validateFirstPassportEvent(storedPassport)).toBe(true)
+    expect(storedPassport && await validateFirstPassportEvent({
+      ...storedPassport,
+      eventHash: '0'.repeat(64),
+    })).toBe(false)
+
+    const secondSale = await requestIntent(productId, 'purchase-attempt-verify-second-sale')
+    expect(secondSale.status).toBe(409)
+    expect(await secondSale.json()).toMatchObject({ error: 'product_unavailable' })
+
     const replay = await app.request(
       `/api/payment-intents/${intent.id}/verification`,
       { headers: { Authorization: `Bearer ${buyerToken}` } },
@@ -392,6 +468,59 @@ describe('buyer-bound purchase intents', () => {
     )
     expect(PaymentVerificationResponseSchema.parse(await replay.json()).state).toBe('verified')
     expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('rolls back confirmation, ownership, event, and product state when issuance fails', async () => {
+    const productId = await publishProduct('ISSUANCE-ROLLBACK-001', 456789)
+    const intent = PurchaseIntentResponseSchema.parse(await (
+      await requestIntent(productId, 'purchase-attempt-issuance-rollback')
+    ).json())
+    const transactionHash = '7'.repeat(64)
+    expect((await submitIntent(intent.id, transactionHash)).status).toBe(200)
+    database.exec(`
+      CREATE TRIGGER test_reject_issued_event BEFORE INSERT ON passport_events
+      WHEN NEW.type = 'issued'
+      BEGIN SELECT RAISE(ABORT, 'injected_issuance_failure'); END;
+    `)
+    const chainTimestamp = Date.parse(intent.createdAt) + 1_000
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      jsonrpc: '2.0',
+      result: { data: {
+        blockNumber: 654321,
+        confirmations: 60,
+        executionResult: true,
+        from: buyerAddress,
+        hash: transactionHash,
+        networkId: 5,
+        recipientData: Buffer.from(intent.transactionData).toString('hex'),
+        relatedAddresses: [buyerAddress, sellerAddress],
+        timestamp: chainTimestamp,
+        to: sellerAddress,
+        value: intent.amountLuna,
+      } },
+    }), { status: 200 })))
+
+    const response = await app.request(
+      `/api/payment-intents/${intent.id}/verification`,
+      { headers: { Authorization: `Bearer ${buyerToken}` } },
+      {
+        DB: db,
+        NIMIQ_NETWORK: 'test-albatross',
+        NIMIQ_RPC_FALLBACK_URL: '',
+        NIMIQ_RPC_PRIMARY_URL: 'https://primary.example/rpc',
+      },
+    )
+    expect(response.status).toBe(500)
+    expect(database.prepare(`
+      SELECT status, confirmed_at, confirmed_block_height FROM payment_intents WHERE id = ?
+    `).get(intent.id)).toEqual({
+      confirmed_at: null,
+      confirmed_block_height: null,
+      status: 'submitted',
+    })
+    expect(database.prepare('SELECT COUNT(*) AS count FROM passports').get()).toEqual({ count: 0 })
+    expect(database.prepare('SELECT COUNT(*) AS count FROM passport_events').get()).toEqual({ count: 0 })
+    expect(database.prepare('SELECT status FROM products WHERE id = ?').get(productId)).toEqual({ status: 'offered' })
   })
 
   it('recovers a force-closed payment from its unique chain tag and uses the normal settlement path', async () => {

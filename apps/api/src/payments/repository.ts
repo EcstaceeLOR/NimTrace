@@ -86,7 +86,12 @@ export async function listReconcilablePaymentIntents(
   const result = await db.prepare(`
     SELECT ${intentProjection}
     FROM payment_intents
-    WHERE network = ? AND status IN ('pending', 'submitted')
+    WHERE network = ? AND (
+      status IN ('pending', 'submitted')
+      OR (status = 'confirmed' AND NOT EXISTS (
+        SELECT 1 FROM passports WHERE passports.purchase_intent_id = payment_intents.id
+      ))
+    )
     ORDER BY created_at ASC
     LIMIT ?
   `).bind(network, limit).all<PaymentIntentRow>()

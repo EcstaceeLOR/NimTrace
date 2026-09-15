@@ -56,6 +56,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Direct Nimiq Pay checkout and recovery states](docs/NIM_CHECKOUT.md)
 - [Independent NIM transaction verification](docs/NIM_VERIFICATION.md)
 - [Interrupted-payment reconciliation and cleanup](docs/PAYMENT_RECONCILIATION.md)
+- [Atomic payment-backed passport issuance](docs/PASSPORT_ISSUANCE.md)
 
 ## Local development
 

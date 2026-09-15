@@ -8,6 +8,7 @@ const migration = [
   '0002_wallet_auth_invariants.sql',
   '0003_product_issuance.sql',
   '0004_purchase_intents.sql',
+  '0005_passport_issuance.sql',
 ].map((name) => readFileSync(new URL(`../../migrations/${name}`, import.meta.url), 'utf8')).join('\n')
 const hash = (character: string) => character.repeat(64)
 const address = (suffix: string) => `NQ00NIMTRACE${suffix.padStart(12, '0')}`
@@ -50,8 +51,8 @@ function seedPassport(database: DatabaseSync) {
       payload_hash, event_hash, actor_address, actor_public_key, actor_signature, payment_intent_id
     ) VALUES (
       'event-1', 'passport-1', 1, 'issued', NULL, '{"type":"issued"}',
-      '${hash('c')}', '${hash('d')}', '${address('1')}', '${'q'.repeat(64)}',
-      '${'t'.repeat(128)}', 'payment-1'
+      '${hash('c')}', '${hash('d')}', '${address('1')}', '${'p'.repeat(64)}',
+      '${'s'.repeat(128)}', 'payment-1'
     );
   `)
 }

@@ -23,6 +23,7 @@ import {
   verifyPaymentIntent,
 } from './payments/service'
 import { NimiqRpcClient, communityRpcUrl } from './payments/rpc'
+import { PassportIssuanceError, issuePassportForConfirmedPurchase } from './passports/service'
 import {
   DEMO_IMAGE_KEY,
   ProductImageError,
@@ -216,6 +217,17 @@ app.get('/api/payment-intents/:intentId/verification', async (c) => {
   return c.json(verification, 200, { 'Cache-Control': 'no-store' })
 })
 
+app.post('/api/payment-intents/:intentId/completion', async (c) => {
+  const buyerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const passport = await issuePassportForConfirmedPurchase(
+    c.env.DB,
+    c.req.param('intentId'),
+    undefined,
+    buyerAddress,
+  )
+  return c.json(passport, 200, { 'Cache-Control': 'no-store' })
+})
+
 app.get('/api/products/:productId', async (c) => {
   const versionValue = c.req.query('version')
   const version = versionValue === undefined ? undefined : Number(versionValue)
@@ -280,6 +292,9 @@ app.get('/api/product-images', async (c) => {
 app.notFound((c) => c.json({ error: 'not_found', message: 'Route not found' }, 404))
 
 app.onError((error, c) => {
+  if (error instanceof PassportIssuanceError) {
+    return c.json({ error: error.code, message: error.message, recoverable: error.status !== 500 }, error.status)
+  }
   if (error instanceof PaymentIntentServiceError) {
     return c.json({ error: error.code, message: error.message, recoverable: true }, error.status)
   }
