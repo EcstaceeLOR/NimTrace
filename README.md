@@ -59,6 +59,7 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Atomic payment-backed passport issuance](docs/PASSPORT_ISSUANCE.md)
 - [Wallet-owned passport collection and detail projection](docs/PASSPORT_COLLECTION.md)
 - [Wallet-free public passport verification and QR](docs/PUBLIC_PASSPORT.md)
+- [Recipient-bound gift transfers](docs/GIFT_TRANSFERS.md)
 
 ## Local development
 

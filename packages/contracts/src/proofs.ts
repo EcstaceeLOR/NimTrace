@@ -55,6 +55,47 @@ export const SignedProofSchema = z.object({
 
 export type SignedProof = z.infer<typeof SignedProofSchema>
 
+export const TransferOfferPayloadSchema = z.object({
+  expiresAt: z.iso.datetime(),
+  nonce: z.string().min(16).max(128),
+  passportId: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/),
+  priceLuna: z.literal(0),
+  recipientAddress: z.string().min(8).max(64),
+  version: z.number().int().positive().safe(),
+}).strict()
+
+export type TransferOfferPayload = z.infer<typeof TransferOfferPayloadSchema>
+
+export const TransferIntentResponseSchema = z.object({
+  expiresAt: z.iso.datetime(),
+  fromAddress: z.string().min(8).max(64),
+  id: z.string().min(16).max(128),
+  passportId: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/),
+  priceLuna: z.literal(0),
+  status: z.enum(['pending_recipient', 'completed', 'expired', 'cancelled', 'failed']),
+  toAddress: z.string().min(8).max(64),
+  version: z.number().int().positive().safe(),
+}).strict()
+
+export type TransferIntentResponse = z.infer<typeof TransferIntentResponseSchema>
+
+export const TransferProofChallengeResponseSchema = z.object({
+  envelope: ProofEnvelopeSchema,
+  intentId: z.string().min(16).max(128),
+  message: z.string().min(80).max(2000),
+  payload: TransferOfferPayloadSchema,
+}).strict()
+
+export type TransferProofChallengeResponse = z.infer<typeof TransferProofChallengeResponseSchema>
+
+export const TransferRecipientRequestSchema = z.object({
+  recipientAddress: z.string().trim().min(8).max(64),
+}).strict()
+
+export const TransferProofRequestSchema = z.object({
+  proof: SignedProofSchema,
+}).strict()
+
 export interface CreateProofEnvelopeInput {
   action: ProofAction
   expiresAt: string
