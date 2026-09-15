@@ -99,6 +99,19 @@ export const TransferProofRequestSchema = z.object({
   proof: SignedProofSchema,
 }).strict()
 
+export const RepairAttestationPayloadSchema = z.object({
+  expiresAt: z.iso.datetime(),
+  notes: z.string().max(4000),
+  nonce: z.string().min(16).max(128),
+  passportId: z.string().length(24).regex(/^[A-Za-z0-9_-]+$/),
+  previousEventHash: z.string().regex(/^[a-f0-9]{64}$/),
+  repairerAddress: z.string().min(8).max(64),
+  serviceType: z.string().trim().min(1).max(80),
+  servicedAt: z.iso.datetime(),
+}).strict()
+
+export type RepairAttestationPayload = z.infer<typeof RepairAttestationPayloadSchema>
+
 export interface CreateProofEnvelopeInput {
   action: ProofAction
   expiresAt: string
