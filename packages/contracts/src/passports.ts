@@ -152,3 +152,18 @@ export const PublicPassportVerificationSchema = z.object({
 }).strict()
 
 export type PublicPassportVerification = z.infer<typeof PublicPassportVerificationSchema>
+
+export const WarrantyPresentationResponseSchema = z.object({
+  expiresAt: z.iso.datetime(),
+  passportId: idSchema,
+  url: z.string().url(),
+}).strict()
+
+export const MerchantWarrantyPresentationSchema = z.object({
+  expiresAt: z.iso.datetime(),
+  passport: PublicPassportVerificationSchema,
+  presentationType: z.literal('merchant_view'),
+}).strict()
+
+export type WarrantyPresentationResponse = z.infer<typeof WarrantyPresentationResponseSchema>
+export type MerchantWarrantyPresentation = z.infer<typeof MerchantWarrantyPresentationSchema>

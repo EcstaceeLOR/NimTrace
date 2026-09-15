@@ -7,6 +7,7 @@ import { PublicProductPage } from './features/products/PublicProductPage'
 import { PassportCollection } from './features/passports/PassportCollection'
 import { PublicPassportVerification } from './features/passports/PublicPassportVerification'
 import { TransferAcceptance } from './features/passports/TransferAcceptance'
+import { MerchantPresentation } from './features/passports/MerchantPresentation'
 
 type ApiState =
   | { status: 'checking' }
@@ -28,9 +29,10 @@ export function App() {
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)
+  const presentationRoute = /^\/presentations\/([^/]+)\/?$/.exec(window.location.pathname)
 
   useEffect(() => {
-    if (productRoute?.[1] || passportRoute?.[1] || transferRoute?.[1]) return
+    if (productRoute?.[1] || passportRoute?.[1] || transferRoute?.[1] || presentationRoute?.[1]) return
     const controller = new AbortController()
 
     async function checkHealth() {
@@ -46,7 +48,7 @@ export function App() {
 
     void checkHealth()
     return () => controller.abort()
-  }, [passportRoute, productRoute, transferRoute])
+  }, [passportRoute, presentationRoute, productRoute, transferRoute])
 
   async function viewPassports() {
     if (!nimiqPayWallet.isAvailable()) {
@@ -106,6 +108,10 @@ export function App() {
 
   if (transferRoute?.[1]) {
     return <TransferAcceptance intentId={decodeURIComponent(transferRoute[1])} />
+  }
+
+  if (presentationRoute?.[1]) {
+    return <MerchantPresentation token={decodeURIComponent(presentationRoute[1])} />
   }
 
   if (wallet.status === 'connected' && !showIssuer) {
