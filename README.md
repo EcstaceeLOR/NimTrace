@@ -62,6 +62,9 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Recipient-bound gift transfers](docs/GIFT_TRANSFERS.md)
 - [Payment-backed resale transfers](docs/RESALE_TRANSFERS.md)
 - [Signed repair attestations](docs/REPAIR_ATTESTATIONS.md)
+- [Accessibility and performance release pass](docs/ACCESSIBILITY_PERFORMANCE.md)
+- [Executable quality gate and device checklist](docs/TESTING.md)
+- [Judging demo runbook and privacy-safe measurement](docs/DEMO_RUNBOOK.md)
 
 ## Local development
 
