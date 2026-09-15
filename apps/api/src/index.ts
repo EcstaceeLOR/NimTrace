@@ -34,6 +34,7 @@ import {
 } from './passports/service'
 import { PublicPassportError, getPublicPassportVerification } from './passports/public'
 import { createWarrantyPresentation, getWarrantyPresentation } from './passports/presentation'
+import { acknowledgeRepair, createRepairAcknowledgement, createRepairChallenge, RepairServiceError, submitRepair } from './passports/repairs'
 import {
   TransferServiceError,
   acceptTransfer,
@@ -315,6 +316,28 @@ app.get('/api/presentations/:token', async (c) => {
   ), 200, { 'Cache-Control': 'no-store' })
 })
 
+app.post('/api/passports/:passportId/repairs/challenges', async (c) => {
+  const owner = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const body = await c.req.json().catch(() => null) as { repairerAddress?: string; serviceType?: string; notes?: string; servicedAt?: string } | null
+  if (!body?.repairerAddress || !body.serviceType || !body.servicedAt) return c.json({ error: 'invalid_repair', message: 'Repairer, service type, and service date are required.' }, 400)
+  return c.json(await createRepairChallenge(c.env.DB, c.req.param('passportId'), owner, body.repairerAddress, { serviceType: body.serviceType, notes: body.notes ?? '', servicedAt: body.servicedAt }, networkFromEnvironment(c.env.NIMIQ_NETWORK)), 201)
+})
+app.post('/api/passports/:passportId/repairs', async (c) => {
+  const proof = await c.req.json().catch(() => null) as { proof?: unknown } | null
+  if (!proof?.proof) return c.json({ error: 'invalid_repair', message: 'Signed repair proof is required.' }, 400)
+  return c.json(await submitRepair(c.env.DB, c.req.param('passportId'), proof.proof as never, networkFromEnvironment(c.env.NIMIQ_NETWORK)), 201)
+})
+app.post('/api/repairs/:repairId/acknowledgement-challenges', async (c) => {
+  const owner = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  return c.json(await createRepairAcknowledgement(c.env.DB, c.req.param('repairId'), owner, networkFromEnvironment(c.env.NIMIQ_NETWORK)), 201)
+})
+app.post('/api/repairs/:repairId/acknowledge', async (c) => {
+  const owner = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  const body = await c.req.json().catch(() => null) as { proof?: unknown } | null
+  if (!body?.proof) return c.json({ error: 'invalid_acknowledgement', message: 'Signed acknowledgement is required.' }, 400)
+  return c.json(await acknowledgeRepair(c.env.DB, c.req.param('repairId'), owner, body.proof as never, networkFromEnvironment(c.env.NIMIQ_NETWORK)), 200)
+})
+
 app.post('/api/passports/:passportId/transfer-intents', async (c) => {
   const ownerAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
   const payload = TransferRecipientRequestSchema.safeParse(await c.req.json().catch(() => null))
@@ -457,6 +480,9 @@ app.onError((error, c) => {
     return c.json({ error: 'passport_not_found', message: error.message }, 404)
   }
   if (error instanceof TransferServiceError) {
+    return c.json({ error: error.code, message: error.message, recoverable: error.status !== 410 }, error.status)
+  }
+  if (error instanceof RepairServiceError) {
     return c.json({ error: error.code, message: error.message, recoverable: error.status !== 410 }, error.status)
   }
   if (error instanceof PassportCollectionError) {

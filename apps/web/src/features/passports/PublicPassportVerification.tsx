@@ -150,7 +150,7 @@ export function PublicPassportVerification({
         </div>
         <p>{passport.eventChain.eventCount} linked event{passport.eventChain.eventCount === 1 ? '' : 's'} · Head {shortHash(passport.eventChain.headEventHash)}</p>
         <ol>
-          {passport.eventChain.events.map((event) => <li key={event.eventHash}><span>{event.sequence}</span><div><strong>{event.type.replace('_', ' ')}</strong><p>{dateTime(event.createdAt)} · Actor {event.maskedActor}</p><code>{shortHash(event.eventHash)}</code></div></li>)}
+          {passport.eventChain.events.map((event) => <li key={event.eventHash}><span>{event.sequence}</span><div><strong>{event.type === 'repaired' ? 'Repairer signer attestation' : event.type.replace('_', ' ')}</strong><p>{dateTime(event.createdAt)} · Actor {event.maskedActor}</p>{event.type === 'repaired' && <p className="verification-delay">NimTrace verifies signatures and history only; this is not a physical inspection.</p>}<code>{shortHash(event.eventHash)}</code></div></li>)}
         </ol>
       </section>
 
