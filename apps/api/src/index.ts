@@ -60,10 +60,43 @@ interface Bindings {
   NIMIQ_NETWORK?: string
   NIMIQ_RPC_FALLBACK_URL?: string
   NIMIQ_RPC_PRIMARY_URL?: string
+  CORS_ORIGIN?: string
   PRODUCT_IMAGES?: R2Bucket
 }
 
 export const app = new Hono<{ Bindings: Bindings }>()
+
+// Keep the API safe by default: only an explicitly configured web origin may
+// make browser requests, while public verification remains cacheable/read-only.
+app.use('*', async (c, next) => {
+  const origin = c.req.header('Origin')
+  const allowedOrigin = c.env.CORS_ORIGIN?.trim()
+  if (c.req.method === 'OPTIONS') {
+    if (origin && allowedOrigin && origin !== allowedOrigin) {
+      return c.json({ error: 'forbidden_origin', message: 'Origin is not allowed.' }, 403)
+    }
+    return new Response(null, { status: 204, headers: {
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
+      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+      ...(origin && allowedOrigin === origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
+    } })
+  }
+
+  if (origin && allowedOrigin && origin !== allowedOrigin) {
+    return c.json({ error: 'forbidden_origin', message: 'Origin is not allowed.' }, 403)
+  }
+
+  await next()
+  c.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+  c.header('Referrer-Policy', 'no-referrer')
+  c.header('X-Content-Type-Options', 'nosniff')
+  c.header('X-Frame-Options', 'DENY')
+  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  if (origin && allowedOrigin === origin) {
+    c.header('Access-Control-Allow-Origin', origin)
+    c.header('Vary', 'Origin')
+  }
+})
 
 app.get('/', (c) => c.json({ service: 'nimtrace-api', docs: '/api/health' }))
 
