@@ -26,6 +26,8 @@ physical product and the lifecycle that follows it:
 The Cycle II submission is deliberately focused on making that promise work
 reliably inside Nimiq Pay on a real phone.
 
+**Live Mini App:** https://nimtrace-api.nimtrace.workers.dev
+
 ## Why Nimiq is load-bearing
 
 - Nimiq Pay provides wallet access and native approval dialogs.
@@ -65,6 +67,9 @@ Remove Nimiq from the system and the core ownership claim stops working.
 - [Accessibility and performance release pass](docs/ACCESSIBILITY_PERFORMANCE.md)
 - [Executable quality gate and device checklist](docs/TESTING.md)
 - [Judging demo runbook and privacy-safe measurement](docs/DEMO_RUNBOOK.md)
+- [Privacy disclosure](docs/PRIVACY.md)
+- [Submission description and direct links](docs/SUBMISSION.md)
+- [Final release and monitoring checklist](docs/RELEASE_CHECKLIST.md)
 
 ## Local development
 
@@ -83,7 +88,15 @@ The web app runs at `http://localhost:5173` and the Worker API at
 `http://localhost:8787`. See the development guide for physical-device loading
 inside Nimiq Pay and all quality commands.
 
-## Planned stack
+## Deployment and architecture
+
+The React/Vite client and Hono API deploy together on a Cloudflare Worker so
+wallet calls remain same-origin. D1 stores replay-protected sessions, payment
+intents, passports, and append-only lifecycle history. Read-only Nimiq RPC
+providers independently verify payments. R2 is optional; the public deployment
+uses a signed repository image fallback until R2 is activated.
+
+## Stack
 
 - React, TypeScript, and Vite
 - `@nimiq/mini-app-sdk`
@@ -93,11 +106,12 @@ inside Nimiq Pay and all quality commands.
 - Zod validation
 - Vitest and Playwright
 
-## Repository status
+## Limitations
 
-Architecture and delivery planning are complete. The React mini app, Worker API,
-shared contracts, automated checks, and CI foundation are implemented.
-Feature work is tracked in GitHub Issues under the **Cycle II Submission** milestone.
+NimTrace proves signed digital history and NIM payment evidence. It does not
+physically inspect products, guarantee merchant claims, provide escrow,
+insurance, refunds, or legal ownership adjudication. Production acceptance still
+requires the two-phone checklist documented in the release gate.
 
 ## License
 

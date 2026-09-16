@@ -3,6 +3,11 @@
   "name": "nimtrace-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
   "triggers": {
     "crons": ["*/1 * * * *"]
   },
@@ -10,15 +15,15 @@
     {
       "binding": "DB",
       "database_name": "nimtrace-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "preview_database_id": "11111111-1111-1111-1111-111111111111",
+      "database_id": "5a3ca574-228f-4db7-990b-2f1fa7c90dc6",
+      "preview_database_id": "2547d41c-e23e-4006-938b-99db39d27f3b",
       "migrations_dir": "migrations"
     }
   ],
   "vars": {
-    "ENVIRONMENT": "development",
+    "ENVIRONMENT": "production",
     "APP_VERSION": "0.1.0",
     "NIMIQ_NETWORK": "main-albatross"
-    ,"CORS_ORIGIN": "https://nimtrace.pages.dev"
+    ,"CORS_ORIGIN": "https://nimtrace-api.nimtrace.workers.dev"
   }
 }
