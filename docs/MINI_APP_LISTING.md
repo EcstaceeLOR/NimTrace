@@ -2,7 +2,7 @@
 
 ## Canonical links
 
-- Nimiq Pay entry: `https://nimpay.app/miniapps/open/nimtrace.vercel.app`
+- Pre-listing Nimiq Pay entry: Mini Apps → Custom URL → `https://nimtrace.vercel.app`
 - Web URL: `https://nimtrace.vercel.app`
 - Source: `https://github.com/EcstaceeLOR/NimTrace`
 - Privacy: `https://github.com/EcstaceeLOR/NimTrace/blob/main/docs/PRIVACY.md`

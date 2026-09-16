@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
-import { createNimiqPayHttpsLink } from './lib/nimiq/deepLink'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
 import { PublicProductPage } from './features/products/PublicProductPage'
@@ -37,7 +36,7 @@ export function App() {
   const [readiness, setReadiness] = useState<WalletReadiness>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
   const miniAppAvailable = nimiqPayWallet.isAvailable()
-  const miniAppLink = createNimiqPayHttpsLink(window.location.href)
+  const miniAppLink = nimiqPayWallet.deepLink()
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)
@@ -242,6 +241,9 @@ export function App() {
               NimTrace needs Nimiq Pay for wallet actions.{' '}
               <a href={wallet.deepLink}>Open NimTrace in Nimiq Pay</a> to issue products, pay in NIM, and manage passports.
             </p>
+          )}
+          {!miniAppAvailable && (
+            <p className="wallet-notice" role="status">If this button does not open Nimiq Pay, open Mini Apps in Nimiq Pay, choose <strong>Custom URL</strong>, and paste <code>https://nimtrace.vercel.app</code>.</p>
           )}
           {miniAppAvailable && wallet.status === 'idle' && (
             <p className="wallet-notice wallet-notice--ready" role="status">

@@ -52,13 +52,14 @@ a physical phone:
 
 ## Open the deployed Mini App
 
-For the public production app, share or open this HTTPS entry point on a phone:
+For the public production app, open **Mini Apps → Custom URL** in Nimiq Pay and
+enter this HTTPS URL:
 
 ```
 https://nimpay.app/miniapps/open/nimtrace.vercel.app
 ```
 
-It opens the `nimtrace.vercel.app` origin inside Nimiq Pay, where the injected
+That loads the `nimtrace.vercel.app` origin inside Nimiq Pay, where the injected
 provider is available. The regular Vercel URL remains useful for wallet-free
 passport verification and for desktop review, but it cannot perform wallet
 actions outside Nimiq Pay.
