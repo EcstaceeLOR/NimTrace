@@ -35,6 +35,7 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
   const [state, setState] = useState<IssuanceState>({ status: 'draft' })
   const [previewUrl, setPreviewUrl] = useState<string>()
   const [uploadedImage, setUploadedImage] = useState<ProductImageResponse>()
+  const [shareMessage, setShareMessage] = useState<string>()
   const imageInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => () => {
@@ -115,6 +116,22 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
       await removeProductImage(uploadedImage.imageKey, sessionToken).catch(() => undefined)
     }
     onClose()
+  }
+
+  async function sharePublishedProduct(productId: string) {
+    const url = `${window.location.origin}/products/${encodeURIComponent(productId)}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Buy a verified product on NimTrace', text: 'View this signed product passport and pay directly in NIM.', url })
+        setShareMessage('Purchase link shared.')
+        return
+      }
+      await navigator.clipboard.writeText(url)
+      setShareMessage('Purchase link copied. Send it to the buyer to open in Nimiq Pay.')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setShareMessage('Could not share automatically. Open the public product page and copy its URL.')
+    }
   }
 
   async function publish(challenge: ProductIssuanceChallengeResponse) {
@@ -232,6 +249,8 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
           <h3>Signed product issued.</h3>
           <p>Product ID: <code>{state.id}</code></p>
           <a className="button button--primary" href={`/products/${encodeURIComponent(state.id)}`}>View public product</a>
+          <button className="button button--secondary" type="button" onClick={() => void sharePublishedProduct(state.id)}>Share purchase link</button>
+          {shareMessage && <p className="issuer-help" role="status">{shareMessage}</p>}
           <button className="button button--primary" type="button" onClick={onClose}>Done</button>
         </div>
       )}
