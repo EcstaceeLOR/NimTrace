@@ -207,6 +207,12 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .verify-form input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; color: var(--text); background: rgba(255,255,255,.06); font: inherit; }
 .miniapp-tabs { display: none; }
 .merchant-center { width: min(1120px, 100%); margin: 0 auto; padding: clamp(2rem, 6vw, 5rem) 0 5rem; }
+.repair-acceptance { width: min(900px, 100%); margin: 0 auto; }
+.repair-acceptance__card { margin: clamp(3rem, 10vw, 7rem) auto; padding: clamp(1.25rem, 5vw, 3rem); border: 1px solid var(--line); border-radius: 24px; background: rgba(255,255,255,0.035); }
+.repair-acceptance__card h1 { margin: 0.35rem 0 1rem; }
+.repair-acceptance__card dl { display: grid; gap: 0.7rem; margin: 2rem 0; }
+.repair-acceptance__card dl div { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); }
+.repair-acceptance__card dd { max-width: 65%; margin: 0; overflow-wrap: anywhere; text-align: right; color: var(--muted); }
 .demo-harness { margin: 2rem 0; padding: 1.2rem; border: 1px solid rgba(58,232,194,0.35); border-radius: 18px; background: rgba(58,232,194,0.06); }
 .demo-harness h2 { margin: 0.25rem 0 0.6rem; }
 .demo-harness p { color: var(--muted); line-height: 1.5; }

@@ -88,6 +88,14 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
   const [transferMessage, setTransferMessage] = useState('')
   const [transferId, setTransferId] = useState('')
   const [presentation, setPresentation] = useState<{ url: string; expiresAt: string }>()
+  const [repairerAddress, setRepairerAddress] = useState('')
+  const [repairService, setRepairService] = useState('Repair or maintenance')
+  const [repairNotes, setRepairNotes] = useState('')
+  const [repairDate, setRepairDate] = useState(new Date().toISOString().slice(0, 10))
+  const [repairState, setRepairState] = useState<'closed' | 'form' | 'created' | 'acknowledging' | 'acknowledged' | 'error'>('closed')
+  const [repairId, setRepairId] = useState('')
+  const [repairShareUrl, setRepairShareUrl] = useState('')
+  const [repairMessage, setRepairMessage] = useState('')
 
   useEffect(() => {
     let active = true
@@ -138,6 +146,56 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
     } catch (error) {
       setTransferMessage(error instanceof Error ? error.message : 'The presentation could not be created.')
       setTransferState('error')
+    }
+  }
+
+  async function createRepairInvite() {
+    setRepairState('acknowledging')
+    try {
+      const response = await fetcher(`/api/passports/${encodeURIComponent(passport.id)}/repairs/challenges`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repairerAddress, serviceType: repairService, notes: repairNotes, servicedAt: new Date(`${repairDate}T12:00:00Z`).toISOString() }),
+      })
+      if (!response.ok) throw new Error((await response.json().catch(() => null) as { message?: string } | null)?.message ?? 'The repair invitation could not be created.')
+      const challenge = await response.json() as { repairId: string; envelope: Record<string, unknown>; message: string; payload: Record<string, unknown> }
+      const url = `${window.location.origin}/repairs/${encodeURIComponent(challenge.repairId)}#challenge=${encodeURIComponent(JSON.stringify(challenge))}`
+      setRepairId(challenge.repairId)
+      setRepairShareUrl(url)
+      setRepairState('created')
+      setRepairMessage('Share this invitation with the repairer. They must open it in Nimiq Pay and sign before you acknowledge it.')
+    } catch (error) {
+      setRepairMessage(error instanceof Error ? error.message : 'The repair invitation failed.')
+      setRepairState('error')
+    }
+  }
+
+  async function shareRepairInvite() {
+    try {
+      if (navigator.share) await navigator.share({ title: 'NimTrace repair invitation', text: 'Sign this repair record in Nimiq Pay.', url: repairShareUrl })
+      else await navigator.clipboard.writeText(repairShareUrl)
+      setRepairMessage('Repair invitation shared/copied.')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setRepairMessage('Copy the invitation URL from the address bar and send it to the repairer.')
+    }
+  }
+
+  async function acknowledgeRepairInvite() {
+    setRepairState('acknowledging')
+    try {
+      const challengeResponse = await fetcher(`/api/repairs/${encodeURIComponent(repairId)}/acknowledgement-challenges`, { method: 'POST', headers: { Authorization: `Bearer ${sessionToken}` } })
+      if (!challengeResponse.ok) throw new Error((await challengeResponse.json().catch(() => null) as { message?: string } | null)?.message ?? 'The repairer must sign before acknowledgement.')
+      const challenge = await challengeResponse.json() as { envelope: Record<string, unknown>; message: string; payload: Record<string, unknown> }
+      const signed = await nimiqPayWallet.sign(challenge.message)
+      if (signed.status !== 'success') throw new Error(signed.status === 'cancelled' ? 'Acknowledgement cancelled. Nothing changed.' : signed.error.message)
+      const response = await fetcher(`/api/repairs/${encodeURIComponent(repairId)}/acknowledge`, { method: 'POST', headers: { Authorization: `Bearer ${sessionToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ proof: { envelope: challenge.envelope, payload: challenge.payload, ...signed.value } }) })
+      if (!response.ok) throw new Error((await response.json().catch(() => null) as { message?: string } | null)?.message ?? 'The repair acknowledgement was rejected.')
+      setRepairState('acknowledged')
+      setRepairMessage('Repair acknowledged and appended to the passport history. Refresh the passport to verify it.')
+    } catch (error) {
+      setRepairMessage(error instanceof Error ? error.message : 'The repair acknowledgement failed.')
+      setRepairState('error')
     }
   }
 
@@ -205,6 +263,7 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
         <div className="passport-owner-actions">
           {passport.ownerActions.includes('transfer') && <button className="button button--primary" type="button" onClick={() => setTransferState('form')}>Transfer passport</button>}
           {passport.ownerActions.includes('present_warranty') && <button className="button button--secondary" type="button" onClick={() => void createPresentation()}>Present warranty</button>}
+          {passport.ownership === 'current' && passport.status === 'active' && <button className="button button--secondary" type="button" onClick={() => setRepairState('form')}>Invite repairer</button>}
         </div>
       )}
       {transferState === 'form' && (
@@ -219,6 +278,11 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
       {transferState === 'signing' && <p className="passport-history-notice" role="status">Waiting for your wallet signature…</p>}
       {transferState === 'error' && <p className="passport-history-notice" role="alert">{transferMessage}</p>}
       {transferState === 'success' && <p className="transfer-success" role="status">Gift offer created. Share transfer ID <code>{transferId}</code> with the recipient wallet; it expires with the signed offer.</p>}
+      {repairState === 'form' && <div className="transfer-panel" role="dialog" aria-labelledby="repair-title"><p className="eyebrow">SIGNED SERVICE RECORD</p><h2 id="repair-title">Invite a repairer</h2><p>The repairer signs the service record in Nimiq Pay. You acknowledge it afterward; only then does it enter the append-only passport history.</p><label>Repairer wallet address<input value={repairerAddress} onChange={(event) => setRepairerAddress(event.target.value)} placeholder="NQ…" autoComplete="off" /></label><label>Service type<input value={repairService} onChange={(event) => setRepairService(event.target.value)} maxLength={120} /></label><label>Service date<input type="date" value={repairDate} onChange={(event) => setRepairDate(event.target.value)} /></label><label>Notes<textarea value={repairNotes} onChange={(event) => setRepairNotes(event.target.value)} maxLength={1000} /></label><div className="passport-owner-actions"><button className="button button--primary" type="button" disabled={!repairerAddress.trim() || !repairService.trim()} onClick={() => void createRepairInvite()}>Create signed invitation</button><button className="button button--secondary" type="button" onClick={() => setRepairState('closed')}>Cancel</button></div></div>}
+      {repairState === 'created' && <div className="transfer-success" role="status"><p>{repairMessage}</p><p><code>{repairId}</code></p><div className="passport-owner-actions"><button className="button button--secondary" type="button" onClick={() => void shareRepairInvite()}>Share repair invitation</button><button className="button button--primary" type="button" onClick={() => void acknowledgeRepairInvite()}>Acknowledge after signing</button></div></div>}
+      {repairState === 'acknowledging' && <p className="passport-history-notice" role="status">Waiting for repair signature or owner acknowledgement…</p>}
+      {repairState === 'acknowledged' && <p className="transfer-success" role="status">{repairMessage}</p>}
+      {repairState === 'error' && <p className="passport-history-notice" role="alert">{repairMessage}</p>}
       {presentation && <div className="presentation-panel" role="status"><p className="eyebrow">SHORT-LIVED MERCHANT PRESENTATION</p><h2>Show this QR at service</h2><p>This is a read-only evidence presentation, not a warranty claim, legal entitlement, or acceptance of service.</p>{qrCode && <img src={qrCode} alt="Short-lived merchant warranty presentation QR code" />}<small>Expires {dateLabel(presentation.expiresAt)}</small></div>}
     </section>
   )

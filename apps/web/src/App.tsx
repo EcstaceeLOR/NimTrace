@@ -9,6 +9,7 @@ import { PassportCollection } from './features/passports/PassportCollection'
 import { PublicPassportVerification } from './features/passports/PublicPassportVerification'
 import { TransferAcceptance } from './features/passports/TransferAcceptance'
 import { MerchantPresentation } from './features/passports/MerchantPresentation'
+import { RepairAcceptance } from './features/passports/RepairAcceptance'
 import { applyAppLanguage } from './lib/i18n'
 import { MiniAppTabs } from './components/MiniAppTabs'
 
@@ -45,6 +46,7 @@ export function App() {
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)
   const presentationRoute = /^\/presentations\/([^/]+)\/?$/.exec(window.location.pathname)
+  const repairRoute = /^\/repairs\/([^/]+)\/?$/.exec(window.location.pathname)
   const issueRoute = window.location.pathname === '/issue'
   const walletRoute = window.location.pathname === '/wallet'
   const merchantRoute = window.location.pathname === '/merchant'
@@ -56,7 +58,7 @@ export function App() {
   }, [])
 
   useEffect(() => {
-    if (productRoute?.[1] || passportRoute?.[1] || transferRoute?.[1] || presentationRoute?.[1]) return
+    if (productRoute?.[1] || passportRoute?.[1] || transferRoute?.[1] || presentationRoute?.[1] || repairRoute?.[1]) return
     const controller = new AbortController()
 
     async function checkHealth() {
@@ -72,7 +74,7 @@ export function App() {
 
     void checkHealth()
     return () => controller.abort()
-  }, [passportRoute, presentationRoute, productRoute, transferRoute])
+  }, [passportRoute, presentationRoute, productRoute, repairRoute, transferRoute])
 
   async function viewPassports() {
     if (!nimiqPayWallet.isAvailable()) {
@@ -163,6 +165,10 @@ export function App() {
 
   if (presentationRoute?.[1]) {
     return <MerchantPresentation token={decodeURIComponent(presentationRoute[1])} />
+  }
+
+  if (repairRoute?.[1]) {
+    return <RepairAcceptance repairId={decodeURIComponent(repairRoute[1])} />
   }
 
   if (howItWorksRoute) {
