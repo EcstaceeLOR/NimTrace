@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
 import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
@@ -38,6 +38,7 @@ export function App() {
   const [readiness, setReadiness] = useState<WalletReadiness>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
   const [verificationId, setVerificationId] = useState('')
+  const [scanMessage, setScanMessage] = useState('')
   const miniAppAvailable = nimiqPayWallet.isAvailable()
   const miniAppLink = nimiqPayWallet.deepLink()
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
@@ -170,7 +171,26 @@ export function App() {
 
   if (verifyRoute) {
     function openVerification(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const id = verificationId.trim(); if (id) window.location.assign(`/passports/${encodeURIComponent(id)}`) }
-    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a passport in seconds.</h1><p className="lede">Scan a NimTrace QR code with your phone camera, or paste the passport ID below. You never need to connect a wallet to validate public proof.</p><form className="verify-form" onSubmit={openVerification}><label>Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste passport ID" autoComplete="off" required /></label><button className="button button--primary">Verify passport</button></form><p className="foundation-note">Camera QR scanning is coming next. This route already works with every printed or shared passport ID.</p></section><MiniAppTabs /></main>
+    async function scanQrImage(event: ChangeEvent<HTMLInputElement>) {
+      const file = event.target.files?.[0]
+      if (!file) return
+      const detectorConstructor = (window as typeof window & { BarcodeDetector?: new (options: { formats: string[] }) => { detect(source: ImageBitmap): Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector
+      if (!detectorConstructor) { setScanMessage('This device cannot decode QR images here. Paste the passport ID below.'); return }
+      try {
+        const bitmap = await createImageBitmap(file)
+        try {
+          const result = await new detectorConstructor({ formats: ['qr_code'] }).detect(bitmap)
+          const rawValue = result[0]?.rawValue
+          if (!rawValue) throw new Error('No QR code was found in that image.')
+          const url = new URL(rawValue, window.location.origin)
+          const match = /^\/passports\/([^/]+)\/?$/.exec(url.pathname)
+          if (url.origin !== window.location.origin || url.search || url.hash || !match) throw new Error('That QR is not a NimTrace passport link.')
+          setVerificationId(decodeURIComponent(match[1]!))
+          setScanMessage('Passport QR read. Confirm the ID below to verify it.')
+        } finally { bitmap.close() }
+      } catch (error) { setScanMessage(error instanceof Error ? error.message : 'The QR image could not be read.') }
+    }
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a passport in seconds.</h1><p className="lede">Upload a screenshot or passport QR image, or paste the passport ID below. You never need to connect a wallet to validate public proof.</p><div className="verify-upload"><label className="button button--secondary">Upload passport QR<input type="file" accept="image/*" onChange={(event) => void scanQrImage(event)} /></label><span>or enter the ID manually</span></div><form className="verify-form" onSubmit={openVerification}><label>Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste passport ID" autoComplete="off" required /></label><button className="button button--primary">Verify passport</button></form>{scanMessage && <p className="foundation-note" role="status">{scanMessage}</p>}</section><MiniAppTabs /></main>
   }
 
   if (issueRoute || walletRoute || merchantRoute) {

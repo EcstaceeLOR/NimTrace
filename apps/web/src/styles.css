@@ -196,6 +196,8 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .route-page h1 { margin: 0; font-size: clamp(2.8rem, 8vw, 5.8rem); letter-spacing: -0.06em; line-height: 0.94; }
 .route-page ol { display: grid; gap: 0.9rem; max-width: 64ch; padding-left: 1.5rem; color: var(--muted); line-height: 1.55; }
 .verify-form { display: grid; gap: 0.8rem; max-width: 520px; }
+.verify-upload { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; color: var(--muted); }
+.verify-upload input[type='file'] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .verify-form label { display: grid; gap: 0.45rem; color: var(--muted); font-size: 0.85rem; }
 .verify-form input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; color: var(--text); background: rgba(255,255,255,.06); font: inherit; }
 .miniapp-tabs { display: none; }
