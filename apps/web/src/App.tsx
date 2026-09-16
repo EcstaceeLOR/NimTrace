@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
+import { createNimiqPayHttpsLink } from './lib/nimiq/deepLink'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
 import { PublicProductPage } from './features/products/PublicProductPage'
@@ -36,7 +37,7 @@ export function App() {
   const [readiness, setReadiness] = useState<WalletReadiness>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
   const miniAppAvailable = nimiqPayWallet.isAvailable()
-  const miniAppLink = nimiqPayWallet.deepLink()
+  const miniAppLink = createNimiqPayHttpsLink(window.location.href)
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createNimiqPayDeepLink, NimiqPayWalletAdapter, normalizeWalletError } from './wallet'
+import { createNimiqPayHttpsLink } from './deepLink'
 
 const account = 'NQ12 TEST 0000 0000 0000 0000 0000 0000 0000'
 
@@ -170,8 +171,15 @@ describe('NimiqPayWalletAdapter', () => {
     expect(normalizeWalletError(error)).toMatchObject({ status: 'error', error: { code } })
   })
 
-  it('creates the public HTTPS Nimiq Pay Mini App link', () => {
+  it('creates a path-preserving Nimiq Pay Mini App link', () => {
     const target = 'https://nimtrace.example/products/demo?ref=qr#passport'
-    expect(createNimiqPayDeepLink(target)).toBe('https://nimpay.app/miniapps/open/nimtrace.example')
+    expect(createNimiqPayDeepLink(target)).toBe(
+      `nimiqpay://miniapp?url=${encodeURIComponent(target)}`,
+    )
+  })
+
+  it('creates the public HTTPS Nimiq Pay Mini App entry link', () => {
+    expect(createNimiqPayHttpsLink('https://nimtrace.example/products/demo?ref=qr'))
+      .toBe('https://nimpay.app/miniapps/open/nimtrace.example')
   })
 })

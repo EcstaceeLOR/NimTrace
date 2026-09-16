@@ -58,7 +58,7 @@ function storage() {
 function wallet(payment: unknown = { status: 'success', value: { transactionHash: 'd'.repeat(64) } }) {
   return {
     checkConsensus: vi.fn().mockResolvedValue({ status: 'success', value: { established: true, blockNumber: 42 } }),
-    deepLink: vi.fn().mockReturnValue('https://nimpay.app/miniapps/open/nimtrace.example'),
+    deepLink: vi.fn().mockReturnValue('nimiqpay://miniapp?url=product'),
     isAvailable: vi.fn().mockReturnValue(true),
     pay: vi.fn().mockResolvedValue(payment),
   }
