@@ -32,7 +32,8 @@ requiring paid R2 activation.
 
 ## Direct links
 
-- Live Mini App: https://nimtrace-api.nimtrace.workers.dev
+- Live Mini App: https://nimtrace.vercel.app
+- Production API health: https://nimtrace-api.nimtrace.workers.dev/api/health
 - Repository: https://github.com/EcstaceeLOR/NimTrace
 - Demo video: add the final 60–90 second public recording URL
 - Skool launch post: add the published post URL
