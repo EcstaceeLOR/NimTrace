@@ -42,6 +42,9 @@ export function App() {
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)
   const presentationRoute = /^\/presentations\/([^/]+)\/?$/.exec(window.location.pathname)
+  const issueRoute = window.location.pathname === '/issue'
+  const walletRoute = window.location.pathname === '/wallet'
+  const howItWorksRoute = window.location.pathname === '/how-it-works'
 
   useEffect(() => {
     applyAppLanguage()
@@ -157,6 +160,17 @@ export function App() {
     return <MerchantPresentation token={decodeURIComponent(presentationRoute[1])} />
   }
 
+  if (howItWorksRoute) {
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/issue">Issue</a><a href="/wallet">My passports</a></div></nav><section className="route-page"><p className="eyebrow">HOW NIMTRACE WORKS</p><h1>Proof follows the product.</h1><ol><li>An issuer signs the product passport with their Nimiq wallet.</li><li>A buyer pays the issuer directly in NIM from Nimiq Pay.</li><li>NimTrace independently verifies the tagged on-chain payment.</li><li>The buyer receives a portable passport, warranty, and service history.</li><li>The owner can verify, transfer, or present it without exposing private keys.</li></ol><a className="button button--primary" href="/issue">Issue your first product</a></section></main>
+  }
+
+  if (issueRoute || walletRoute) {
+    const title = issueRoute ? 'Issue a signed product passport.' : 'Open your product passports.'
+    const detail = issueRoute ? 'Create a real product record, sign it in Nimiq Pay, then share its purchase page.' : 'See passports owned by this wallet, verify warranty status, and transfer products safely.'
+    const action = issueRoute ? issueProduct : viewPassports
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/how-it-works">How it works</a><a href={issueRoute ? "/wallet" : "/issue"}>{issueRoute ? 'My passports' : 'Issue'}</a></div></nav>{wallet.status === 'connected' && issueRoute ? <ProductIssuance sessionToken={wallet.sessionToken} onClose={() => { window.location.href = '/' }} /> : wallet.status === 'connected' ? <PassportCollection address={wallet.address} sessionToken={wallet.sessionToken} onBack={() => { window.location.href = '/' }} /> : <section className="route-page"><p className="eyebrow">NIMIQ PAY REQUIRED</p><h1>{title}</h1><p className="lede">{detail}</p>{!miniAppAvailable ? <a className="button button--primary" href={miniAppLink}>Open in Nimiq Pay</a> : <button className="button button--primary" type="button" onClick={() => void action()}>{issueRoute ? 'Connect and issue' : 'Connect my wallet'}</button>}{wallet.status === 'error' && <p className="wallet-notice wallet-notice--error" role="alert">{wallet.message}</p>}</section>}</main>
+  }
+
   if (wallet.status === 'connected' && !showIssuer) {
     return (
       <main>
@@ -173,9 +187,10 @@ export function App() {
     <main>
       <nav className="nav" aria-label="Primary navigation">
         <a className="brand" href="/" aria-label="NimTrace home">
-          <span className="brand-mark" aria-hidden="true">N</span>
+          <img className="brand-logo" src="/nimtrace-logo-v1.png" alt="" />
           NimTrace
         </a>
+        <div className="nav-links"><a href="/how-it-works">How it works</a><a href="/issue">Issue</a><a href="/wallet">My passports</a></div>
         <span className={`status status--${api.status}`} role="status">
           <span className="status-dot" aria-hidden="true" />
           {api.status === 'online' ? 'Network ready' : api.status === 'offline' ? 'API unavailable' : 'Connecting'}

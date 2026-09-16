@@ -187,7 +187,14 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 }
 
 .brand { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -0.02em; }
+.brand-logo { width: 32px; height: 32px; object-fit: contain; }
 .brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; color: #07110f; background: #3ae8c2; font-weight: 900; }
+.nav-links { display: flex; align-items: center; gap: 1rem; margin-left: auto; margin-right: 1.25rem; }
+.nav-links a { color: var(--muted); text-decoration: none; font-size: 0.82rem; font-weight: 700; }
+.nav-links a:hover { color: var(--accent-strong); }
+.route-page { width: min(760px, 100%); min-height: calc(100vh - 138px); display: grid; align-content: center; gap: 1.25rem; padding: 4rem 0; }
+.route-page h1 { margin: 0; font-size: clamp(2.8rem, 8vw, 5.8rem); letter-spacing: -0.06em; line-height: 0.94; }
+.route-page ol { display: grid; gap: 0.9rem; max-width: 64ch; padding-left: 1.5rem; color: var(--muted); line-height: 1.55; }
 
 .status { display: inline-flex; align-items: center; gap: 8px; color: #a9b0bc; font-size: 0.78rem; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #77808d; box-shadow: 0 0 0 4px rgba(119, 128, 141, 0.1); }
@@ -229,6 +236,7 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 
 @media (max-width: 800px) {
   main { padding-inline: 18px; }
+  .nav-links { display: none; }
   .hero { grid-template-columns: 1fr; padding-top: 50px; }
   .hero h1 { font-size: clamp(3rem, 15vw, 4.8rem); }
   .passport { min-height: 490px; }
