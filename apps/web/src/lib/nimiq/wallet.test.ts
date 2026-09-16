@@ -170,10 +170,8 @@ describe('NimiqPayWalletAdapter', () => {
     expect(normalizeWalletError(error)).toMatchObject({ status: 'error', error: { code } })
   })
 
-  it('creates an encoded Nimiq Pay Mini App deep link', () => {
+  it('creates the public HTTPS Nimiq Pay Mini App link', () => {
     const target = 'https://nimtrace.example/products/demo?ref=qr#passport'
-    expect(createNimiqPayDeepLink(target)).toBe(
-      `nimiqpay://miniapp?url=${encodeURIComponent(target)}`,
-    )
+    expect(createNimiqPayDeepLink(target)).toBe('https://nimpay.app/miniapps/open/nimtrace.example')
   })
 })

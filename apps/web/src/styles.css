@@ -199,6 +199,7 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .hero h1 { max-width: 700px; margin: 14px 0 22px; font-size: clamp(3.1rem, 7vw, 6.4rem); line-height: 0.94; letter-spacing: -0.065em; }
 .lede { max-width: 570px; color: #a9b0bc; font-size: clamp(1rem, 2vw, 1.23rem); line-height: 1.65; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.actions > a.button { display: inline-flex; align-items: center; text-decoration: none; }
 .button { border: 0; border-radius: 12px; padding: 14px 19px; font-weight: 760; transition: transform 160ms ease, background 160ms ease; }
 .button:hover { transform: translateY(-2px); }
 .button:focus-visible { outline: 3px solid rgba(58, 232, 194, 0.55); outline-offset: 3px; }
@@ -207,6 +208,7 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .foundation-note { margin-top: 18px; color: #727b89; font-size: 0.76rem; }
 .wallet-notice { max-width: 570px; margin: 16px 0 0; color: #c8ced7; font-size: 0.88rem; line-height: 1.5; }
 .wallet-notice a { color: #83ffe5; font-weight: 760; }
+.wallet-notice--ready { color: var(--accent-strong); }
 .wallet-notice--error { color: #ffaaa2; }
 
 .passport { position: relative; overflow: hidden; min-height: 530px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 28px; background: linear-gradient(145deg, rgba(24, 29, 39, 0.96), rgba(12, 15, 21, 0.97)); box-shadow: 0 42px 100px rgba(0, 0, 0, 0.38); }

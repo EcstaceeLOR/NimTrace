@@ -26,7 +26,9 @@ physical product and the lifecycle that follows it:
 The Cycle II submission is deliberately focused on making that promise work
 reliably inside Nimiq Pay on a real phone.
 
-**Live Mini App:** https://nimtrace.vercel.app
+**Open in Nimiq Pay:** https://nimpay.app/miniapps/open/nimtrace.vercel.app
+
+**Web preview:** https://nimtrace.vercel.app
 
 **Production API:** https://nimtrace-api.nimtrace.workers.dev/api/health
 
