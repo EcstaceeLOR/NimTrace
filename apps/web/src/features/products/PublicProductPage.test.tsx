@@ -41,7 +41,7 @@ describe('PublicProductPage', () => {
     expect(screen.getByText(product.serialFingerprint)).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /QR code.*verification/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Buy with NIM' }))
-      .toHaveAttribute('href', expect.stringMatching(/^nimiqpay:\/\/miniapp\?url=/))
+      .toHaveAttribute('href', expect.stringMatching(/^https:\/\/nimpay\.app\/miniapps\/open\//))
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
