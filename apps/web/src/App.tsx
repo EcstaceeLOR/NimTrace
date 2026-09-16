@@ -40,6 +40,7 @@ export function App() {
   const [showIssuer, setShowIssuer] = useState(false)
   const [verificationId, setVerificationId] = useState('')
   const [scanMessage, setScanMessage] = useState('')
+  const [scanState, setScanState] = useState<'idle' | 'reading'>('idle')
   const miniAppAvailable = nimiqPayWallet.isAvailable()
   const miniAppLink = nimiqPayWallet.deepLink()
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
@@ -180,8 +181,10 @@ export function App() {
     async function scanQrImage(event: ChangeEvent<HTMLInputElement>) {
       const file = event.target.files?.[0]
       if (!file) return
+      setScanState('reading')
+      setScanMessage('Reading QR…')
       const detectorConstructor = (window as typeof window & { BarcodeDetector?: new (options: { formats: string[] }) => { detect(source: ImageBitmap): Promise<Array<{ rawValue?: string }>> } }).BarcodeDetector
-      if (!detectorConstructor) { setScanMessage('This device cannot decode QR images here. Paste the passport ID below.'); return }
+      if (!detectorConstructor) { setScanState('idle'); setScanMessage('This device cannot decode QR images here. Paste the passport ID below.'); return }
       try {
         const bitmap = await createImageBitmap(file)
         try {
@@ -190,13 +193,15 @@ export function App() {
           if (!rawValue) throw new Error('No QR code was found in that image.')
           const url = new URL(rawValue, window.location.origin)
           const match = /^\/passports\/([^/]+)\/?$/.exec(url.pathname)
-          if (url.origin !== window.location.origin || url.search || url.hash || !match) throw new Error('That QR is not a NimTrace passport link.')
+          const allowedHost = url.hostname === window.location.hostname || url.hostname === 'nimtrace.vercel.app'
+          if (!allowedHost || url.search || url.hash || !match) throw new Error('That QR is not a NimTrace passport link.')
           setVerificationId(decodeURIComponent(match[1]!))
-          setScanMessage('Passport QR read. Confirm the ID below to verify it.')
+          setScanMessage('Passport QR read. Opening independent verification…')
+          window.location.assign(`/passports/${encodeURIComponent(decodeURIComponent(match[1]!))}`)
         } finally { bitmap.close() }
-      } catch (error) { setScanMessage(error instanceof Error ? error.message : 'The QR image could not be read.') }
+      } catch (error) { setScanState('idle'); setScanMessage(error instanceof Error ? error.message : 'The QR image could not be read.') }
     }
-    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a passport in seconds.</h1><p className="lede">Take a QR photo, upload a QR screenshot, or paste the passport ID below. You never need to connect a wallet to validate public proof.</p><div className="verify-upload"><label className="button button--secondary">Take QR photo<input type="file" accept="image/*" capture="environment" onChange={(event) => void scanQrImage(event)} /></label><label className="button button--secondary">Upload QR image<input type="file" accept="image/*" onChange={(event) => void scanQrImage(event)} /></label><span>or enter the ID manually</span></div><form className="verify-form" onSubmit={openVerification}><label>Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste passport ID" autoComplete="off" required /></label><button className="button button--primary">Verify passport</button></form>{scanMessage && <p className="foundation-note" role="status">{scanMessage}</p>}</section><MiniAppTabs /></main>
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a passport in seconds.</h1><p className="lede">Take a QR photo, upload a QR screenshot, or paste the passport ID below. You never need to connect a wallet to validate public proof.</p><div className="verify-upload"><label className={`button button--secondary${scanState === 'reading' ? ' is-disabled' : ''}`}>Take QR photo<input type="file" accept="image/*" capture="environment" disabled={scanState === 'reading'} onChange={(event) => void scanQrImage(event)} /></label><label className={`button button--secondary${scanState === 'reading' ? ' is-disabled' : ''}`}>Upload QR image<input type="file" accept="image/*" disabled={scanState === 'reading'} onChange={(event) => void scanQrImage(event)} /></label><span>or enter the ID manually</span></div><form className="verify-form" onSubmit={openVerification}><label>Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste passport ID" autoComplete="off" required /></label><button className="button button--primary">Verify passport</button></form>{scanMessage && <p className="foundation-note" role="status">{scanMessage}</p>}</section><MiniAppTabs /></main>
   }
 
   if (issueRoute || walletRoute || merchantRoute) {
