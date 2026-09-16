@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
+export const NimiqNetworkSchema = z.enum(['main-albatross', 'test-albatross'])
+export type NimiqNetwork = z.infer<typeof NimiqNetworkSchema>
+
 export const HealthResponseSchema = z.object({
+  network: NimiqNetworkSchema.default('main-albatross'),
   status: z.literal('ok'),
   service: z.literal('nimtrace-api'),
   version: z.string().min(1),
@@ -25,9 +29,6 @@ export interface WalletIdentity {
   address: string
   label?: string
 }
-
-export const NimiqNetworkSchema = z.enum(['main-albatross', 'test-albatross'])
-export type NimiqNetwork = z.infer<typeof NimiqNetworkSchema>
 
 export const WalletChallengeRequestSchema = z.object({
   walletAddress: z.string().trim().min(8).max(64),

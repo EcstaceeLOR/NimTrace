@@ -166,7 +166,7 @@ export function App() {
   }
 
   if (howItWorksRoute) {
-    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/issue">Issue</a><a href="/wallet">My passports</a></div></nav><section className="route-page"><p className="eyebrow">HOW NIMTRACE WORKS</p><h1>Proof follows the product.</h1><ol><li>An issuer signs the product passport with their Nimiq wallet.</li><li>A buyer pays the issuer directly in NIM from Nimiq Pay.</li><li>NimTrace independently verifies the tagged on-chain payment.</li><li>The buyer receives a portable passport, warranty, and service history.</li><li>The owner can verify, transfer, or present it without exposing private keys.</li></ol><a className="button button--primary" href="/issue">Issue your first product</a></section><MiniAppTabs /></main>
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/issue">Issue</a><a href="/wallet">My passports</a></div></nav><section className="route-page"><p className="eyebrow">HOW NIMTRACE WORKS</p><h1>Proof follows the product.</h1><ol><li>An issuer signs the product passport with their Nimiq wallet.</li><li>A buyer pays the issuer directly in NIM from Nimiq Pay.</li><li>NimTrace independently verifies the tagged on-chain payment.</li><li>The buyer receives a portable passport, warranty, and service history.</li><li>The owner can verify, transfer, or present it without exposing private keys.</li></ol><div className="demo-harness"><p className="eyebrow">SAFE REAL-DEVICE CHECK</p><h2>{api.health?.network === 'test-albatross' ? 'Testnet mode active' : 'Mainnet mode active'}</h2><p>{api.health?.network === 'test-albatross' ? 'Use test NIM and two test wallets for the full issue → pay → verify → transfer walkthrough.' : 'This deployment is configured for mainnet. Do not send funds while validating the demo; switch the API to test-albatross for a safe rehearsal.'}</p><ol><li>Open NimTrace in Nimiq Pay using Custom URL.</li><li>Check wallet connection and consensus on the home page.</li><li>Use one wallet to issue, a second wallet to pay, then open the public passport without a wallet.</li><li>Capture the QR or upload it on Verify, then test transfer only with test funds.</li></ol></div><a className="button button--primary" href="/issue">Issue your first product</a></section><MiniAppTabs /></main>
   }
 
   if (verifyRoute) {
@@ -223,7 +223,7 @@ export function App() {
         <div className="nav-links"><a href="/how-it-works">How it works</a><a href="/issue">Issue</a><a href="/merchant">Merchant studio</a><a href="/wallet">My passports</a></div>
         <span className={`status status--${api.status}`} role="status">
           <span className="status-dot" aria-hidden="true" />
-          {api.status === 'online' ? 'Network ready' : api.status === 'offline' ? 'API unavailable' : 'Connecting'}
+          {api.status === 'online' ? `${api.health.network === 'test-albatross' ? 'Testnet' : 'Mainnet'} ready` : api.status === 'offline' ? 'API unavailable' : 'Connecting'}
         </span>
       </nav>
 

@@ -207,6 +207,10 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .verify-form input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; color: var(--text); background: rgba(255,255,255,.06); font: inherit; }
 .miniapp-tabs { display: none; }
 .merchant-center { width: min(1120px, 100%); margin: 0 auto; padding: clamp(2rem, 6vw, 5rem) 0 5rem; }
+.demo-harness { margin: 2rem 0; padding: 1.2rem; border: 1px solid rgba(58,232,194,0.35); border-radius: 18px; background: rgba(58,232,194,0.06); }
+.demo-harness h2 { margin: 0.25rem 0 0.6rem; }
+.demo-harness p { color: var(--muted); line-height: 1.5; }
+.demo-harness ol { margin: 0.8rem 0 0; }
 .merchant-center__header { display: flex; justify-content: space-between; align-items: end; gap: 2rem; margin-bottom: 2rem; }
 .merchant-center__header h1 { margin: 0.35rem 0; }
 .merchant-center__header p:not(.eyebrow) { color: var(--muted); }

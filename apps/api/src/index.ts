@@ -107,6 +107,7 @@ app.get('/api/health', (c) => {
   const health = HealthResponseSchema.parse({
     status: 'ok',
     service: 'nimtrace-api',
+    network: networkFromEnvironment(c.env?.NIMIQ_NETWORK),
     version: c.env?.APP_VERSION ?? '0.1.0',
     environment: c.env?.ENVIRONMENT ?? 'unknown',
     timestamp: new Date().toISOString(),
