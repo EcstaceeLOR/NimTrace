@@ -196,6 +196,7 @@ export function App() {
           sessionToken={wallet.sessionToken}
           onBack={() => setWallet({ status: 'idle' })}
         />
+        <MiniAppTabs />
       </main>
     )
   }
