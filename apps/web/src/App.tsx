@@ -3,6 +3,7 @@ import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
+import { MerchantCommandCenter } from './features/issuer/MerchantCommandCenter'
 import { PublicProductPage } from './features/products/PublicProductPage'
 import { PassportCollection } from './features/passports/PassportCollection'
 import { PublicPassportVerification } from './features/passports/PublicPassportVerification'
@@ -45,6 +46,7 @@ export function App() {
   const presentationRoute = /^\/presentations\/([^/]+)\/?$/.exec(window.location.pathname)
   const issueRoute = window.location.pathname === '/issue'
   const walletRoute = window.location.pathname === '/wallet'
+  const merchantRoute = window.location.pathname === '/merchant'
   const howItWorksRoute = window.location.pathname === '/how-it-works'
   const verifyRoute = window.location.pathname === '/verify'
 
@@ -171,11 +173,11 @@ export function App() {
     return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a passport in seconds.</h1><p className="lede">Scan a NimTrace QR code with your phone camera, or paste the passport ID below. You never need to connect a wallet to validate public proof.</p><form className="verify-form" onSubmit={openVerification}><label>Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste passport ID" autoComplete="off" required /></label><button className="button button--primary">Verify passport</button></form><p className="foundation-note">Camera QR scanning is coming next. This route already works with every printed or shared passport ID.</p></section><MiniAppTabs /></main>
   }
 
-  if (issueRoute || walletRoute) {
-    const title = issueRoute ? 'Issue a signed product passport.' : 'Open your product passports.'
-    const detail = issueRoute ? 'Create a real product record, sign it in Nimiq Pay, then share its purchase page.' : 'See passports owned by this wallet, verify warranty status, and transfer products safely.'
-    const action = issueRoute ? issueProduct : viewPassports
-    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/how-it-works">How it works</a><a href={issueRoute ? "/wallet" : "/issue"}>{issueRoute ? 'My passports' : 'Issue'}</a></div></nav>{wallet.status === 'connected' && issueRoute ? <ProductIssuance sessionToken={wallet.sessionToken} onClose={() => { window.location.href = '/' }} /> : wallet.status === 'connected' ? <PassportCollection address={wallet.address} sessionToken={wallet.sessionToken} onBack={() => { window.location.href = '/' }} /> : <section className="route-page"><p className="eyebrow">NIMIQ PAY REQUIRED</p><h1>{title}</h1><p className="lede">{detail}</p>{!miniAppAvailable ? <a className="button button--primary" href={miniAppLink}>Open in Nimiq Pay</a> : <button className="button button--primary" type="button" onClick={() => void action()}>{issueRoute ? 'Connect and issue' : 'Connect my wallet'}</button>}{wallet.status === 'error' && <p className="wallet-notice wallet-notice--error" role="alert">{wallet.message}</p>}</section>}<MiniAppTabs /></main>
+  if (issueRoute || walletRoute || merchantRoute) {
+    const title = issueRoute ? 'Issue a signed product passport.' : merchantRoute ? 'Run your product catalogue.' : 'Open your product passports.'
+    const detail = issueRoute ? 'Create a real product record, sign it in Nimiq Pay, then share its purchase page.' : merchantRoute ? 'See live product state, purchaser status, warranty terms, and shareable proof.' : 'See passports owned by this wallet, verify warranty status, and transfer products safely.'
+    const action = issueRoute || merchantRoute ? issueProduct : viewPassports
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/how-it-works">How it works</a><a href={issueRoute ? "/wallet" : merchantRoute ? "/issue" : "/merchant"}>{issueRoute ? 'My passports' : merchantRoute ? 'Issue' : 'Merchant studio'}</a></div></nav>{wallet.status === 'connected' && issueRoute ? <ProductIssuance sessionToken={wallet.sessionToken} onClose={() => { window.location.href = '/' }} /> : wallet.status === 'connected' && merchantRoute ? <MerchantCommandCenter sessionToken={wallet.sessionToken} onBack={() => { window.location.href = '/' }} /> : wallet.status === 'connected' ? <PassportCollection address={wallet.address} sessionToken={wallet.sessionToken} onBack={() => { window.location.href = '/' }} /> : <section className="route-page"><p className="eyebrow">NIMIQ PAY REQUIRED</p><h1>{title}</h1><p className="lede">{detail}</p>{!miniAppAvailable ? <a className="button button--primary" href={miniAppLink}>Open in Nimiq Pay</a> : <button className="button button--primary" type="button" onClick={() => void action()}>{issueRoute ? 'Connect and issue' : merchantRoute ? 'Connect merchant wallet' : 'Connect my wallet'}</button>}{wallet.status === 'error' && <p className="wallet-notice wallet-notice--error" role="alert">{wallet.message}</p>}</section>}<MiniAppTabs /></main>
   }
 
   if (wallet.status === 'connected' && !showIssuer) {
@@ -198,7 +200,7 @@ export function App() {
           <img className="brand-logo" src="/nimtrace-logo-v1.png" alt="" />
           NimTrace
         </a>
-        <div className="nav-links"><a href="/how-it-works">How it works</a><a href="/issue">Issue</a><a href="/wallet">My passports</a></div>
+        <div className="nav-links"><a href="/how-it-works">How it works</a><a href="/issue">Issue</a><a href="/merchant">Merchant studio</a><a href="/wallet">My passports</a></div>
         <span className={`status status--${api.status}`} role="status">
           <span className="status-dot" aria-hidden="true" />
           {api.status === 'online' ? 'Network ready' : api.status === 'offline' ? 'API unavailable' : 'Connecting'}

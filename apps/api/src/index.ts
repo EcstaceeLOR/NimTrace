@@ -17,6 +17,7 @@ import { AuthServiceError, createWalletSession, issueWalletChallenge } from './a
 import { SessionAuthenticationError, authenticatedWallet } from './auth/session'
 import { ProductServiceError, createPublishedProduct, issueProductProof } from './products/service'
 import { PublicProductError, getPublicProduct } from './products/public'
+import { listMerchantProducts } from './products/merchant'
 import {
   PaymentIntentServiceError,
   createInitialPurchaseIntent,
@@ -216,6 +217,11 @@ app.post('/api/products', async (c) => {
     networkFromEnvironment(c.env.NIMIQ_NETWORK),
   )
   return c.json(product, 201, { 'Cache-Control': 'no-store' })
+})
+
+app.get('/api/merchant/products', async (c) => {
+  const walletAddress = await authenticatedWallet(c.env.DB, c.req.header('Authorization'))
+  return c.json(await listMerchantProducts(c.env.DB, walletAddress), 200, { 'Cache-Control': 'no-store' })
 })
 
 app.post('/api/products/:productId/purchase-intents', async (c) => {

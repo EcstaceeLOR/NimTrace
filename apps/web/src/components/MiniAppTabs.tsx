@@ -5,6 +5,7 @@ export function MiniAppTabs() {
     ['/verify', 'Verify'],
     ['/issue', 'Issue'],
     ['/wallet', 'Wallet'],
+    ['/merchant', 'Studio'],
   ] as const
 
   return (
