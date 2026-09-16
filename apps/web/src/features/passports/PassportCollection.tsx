@@ -46,6 +46,15 @@ function warrantyLabel(passport: PassportSummary) {
   return `${passport.warrantyDaysRemaining} days remaining`
 }
 
+function eventLabel(type: PassportDetail['events'][number]['type']) {
+  if (type === 'issued') return 'Passport issued'
+  if (type === 'transferred') return 'Ownership transferred'
+  if (type === 'repaired') return 'Signed repair acknowledged'
+  if (type === 'warranty_claimed') return 'Warranty claim recorded'
+  if (type === 'corrected') return 'Record corrected'
+  return 'Passport retired'
+}
+
 function PassportCard({ passport, onOpen }: { passport: PassportSummary; onOpen: () => void }) {
   return (
     <article className={`owned-passport-card owned-passport-card--${passport.status}${passport.recentlyIssued ? ' owned-passport-card--arriving' : ''}`}>
@@ -177,11 +186,16 @@ function PassportDetailView({ passport, fetcher, onClose, sessionToken }: { fetc
       <section className="passport-timeline" aria-labelledby="timeline-title">
         <p className="eyebrow">TAMPER-EVIDENT LIFECYCLE</p>
         <h2 id="timeline-title">Product history</h2>
+        <div className="passport-milestones">
+          <article><span>Payment verified</span><strong>Block {passport.purchaseBlockHeight}</strong><small>{dateLabel(passport.purchaseConfirmedAt)}</small></article>
+          <article><span>Warranty</span><strong>{warrantyLabel(passport)}</strong><small>{dateLabel(passport.warrantyStartedAt)} — {dateLabel(passport.warrantyExpiresAt)}</small></article>
+          <article><span>Current owner</span><strong>{passport.ownership === 'current' ? 'This wallet' : 'Former owner'}</strong><small>{passport.status.replace('_', ' ')}</small></article>
+        </div>
         <ol>
           {passport.events.map((event) => (
             <li key={event.eventHash}>
               <span>{event.sequence}</span>
-              <div><strong>{event.type.replace('_', ' ')}</strong><p>{dateLabel(event.createdAt)} · {shortAddress(event.actorAddress)}</p><code>{event.eventHash.slice(0, 18)}…</code></div>
+              <div><strong>{eventLabel(event.type)}</strong><p>{dateLabel(event.createdAt)} · {shortAddress(event.actorAddress)}</p><code>{event.eventHash.slice(0, 18)}…</code></div>
             </li>
           ))}
         </ol>

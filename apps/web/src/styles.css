@@ -340,6 +340,11 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .passport-timeline li div { padding: 0.2rem 0 1.2rem; border-bottom: 1px solid var(--line); }
 .passport-timeline li p, .passport-timeline li code { color: var(--muted); font-size: 0.78rem; }
 .passport-timeline li strong { text-transform: capitalize; }
+.passport-milestones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; margin: 1.25rem 0; }
+.passport-milestones article { display: grid; gap: 0.35rem; padding: 0.9rem; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,0.025); }
+.passport-milestones span, .passport-milestones small { color: var(--muted); font-size: 0.78rem; }
+.passport-milestones strong { color: var(--accent); }
+@media (max-width: 800px) { .passport-milestones { grid-template-columns: 1fr; } }
 .passport-owner-actions { display: flex; gap: 0.75rem; margin-top: 2rem; }
 .transfer-panel { display: grid; gap: 0.8rem; margin-top: 2rem; padding: 1.25rem; border: 1px solid rgba(58, 232, 194, 0.35); border-radius: 18px; background: rgba(58, 232, 194, 0.06); }
 .transfer-panel h2 { margin: 0; }
