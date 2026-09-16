@@ -50,6 +50,19 @@ a physical phone:
 6. Use the Nimiq Pay WebView—not a desktop browser—to verify provider injection,
    account approval, signatures, and transactions as those capabilities land.
 
+## Open the deployed Mini App
+
+For the public production app, share or open this HTTPS entry point on a phone:
+
+```
+https://nimpay.app/miniapps/open/nimtrace.vercel.app
+```
+
+It opens the `nimtrace.vercel.app` origin inside Nimiq Pay, where the injected
+provider is available. The regular Vercel URL remains useful for wallet-free
+passport verification and for desktop review, but it cannot perform wallet
+actions outside Nimiq Pay.
+
 Never tunnel or expose a development server that contains production secrets.
 For HTTPS-only device policies, use a trusted development tunnel and allow only
 the exact generated origin.

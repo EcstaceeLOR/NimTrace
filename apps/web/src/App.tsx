@@ -23,10 +23,20 @@ type WalletState =
   | { status: 'outside'; deepLink: string }
   | { status: 'error'; message: string }
 
+type WalletReadiness =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'ready'; blockNumber: number }
+  | { status: 'cancelled' }
+  | { status: 'error'; message: string }
+
 export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })
   const [wallet, setWallet] = useState<WalletState>({ status: 'idle' })
+  const [readiness, setReadiness] = useState<WalletReadiness>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
+  const miniAppAvailable = nimiqPayWallet.isAvailable()
+  const miniAppLink = nimiqPayWallet.deepLink()
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
   const passportRoute = /^\/passports\/([^/]+)\/?$/.exec(window.location.pathname)
   const transferRoute = /^\/transfers\/([^/]+)\/?$/.exec(window.location.pathname)
@@ -103,6 +113,33 @@ export function App() {
     }
   }
 
+  async function checkWalletReadiness() {
+    if (!miniAppAvailable) {
+      setReadiness({ status: 'error', message: 'Open NimTrace in Nimiq Pay before checking the wallet connection.' })
+      return
+    }
+
+    setReadiness({ status: 'checking' })
+    const connection = await nimiqPayWallet.connect()
+    if (connection.status === 'cancelled') {
+      setReadiness({ status: 'cancelled' })
+      return
+    }
+    if (connection.status !== 'success') {
+      setReadiness({ status: 'error', message: connection.error.message })
+      return
+    }
+
+    const consensus = await nimiqPayWallet.checkConsensus()
+    if (consensus.status === 'success') {
+      setReadiness({ status: 'ready', blockNumber: consensus.value.blockNumber })
+    } else if (consensus.status === 'cancelled') {
+      setReadiness({ status: 'cancelled' })
+    } else {
+      setReadiness({ status: 'error', message: consensus.error.message })
+    }
+  }
+
   if (productRoute?.[1]) {
     return <PublicProductPage productId={decodeURIComponent(productRoute[1])} />
   }
@@ -152,8 +189,13 @@ export function App() {
             Payment-backed ownership, warranty, and service history—carried safely from one wallet to the next.
           </p>
           <div className="actions">
+            {!miniAppAvailable && (
+              <a className="button button--primary" href={miniAppLink}>
+                Open in Nimiq Pay
+              </a>
+            )}
             <button
-              className="button button--primary"
+              className="button button--secondary"
               type="button"
               disabled={wallet.status === 'authenticating'}
               onClick={() => void viewPassports()}
@@ -168,12 +210,38 @@ export function App() {
             >
               Issue a product
             </button>
+            {miniAppAvailable && (
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={readiness.status === 'checking'}
+                onClick={() => void checkWalletReadiness()}
+              >
+                {readiness.status === 'checking' ? 'Checking wallet…' : 'Check wallet connection'}
+              </button>
+            )}
           </div>
           {wallet.status === 'outside' && (
             <p className="wallet-notice" role="status">
-              Public verification works here. To view wallet-owned passports,{' '}
-              <a href={wallet.deepLink}>open NimTrace in Nimiq Pay</a>.
+              NimTrace needs Nimiq Pay for wallet actions.{' '}
+              <a href={wallet.deepLink}>Open NimTrace in Nimiq Pay</a> to issue products, pay in NIM, and manage passports.
             </p>
+          )}
+          {miniAppAvailable && wallet.status === 'idle' && (
+            <p className="wallet-notice wallet-notice--ready" role="status">
+              Nimiq Pay detected. Connect your wallet to issue a product or see your passports.
+            </p>
+          )}
+          {readiness.status === 'ready' && (
+            <p className="wallet-notice wallet-notice--ready" role="status">
+              Wallet connection ready · consensus at block {readiness.blockNumber}. Your address stays private until you choose a NimTrace action.
+            </p>
+          )}
+          {readiness.status === 'cancelled' && (
+            <p className="wallet-notice" role="status">Wallet check cancelled. No message was signed and no payment was requested.</p>
+          )}
+          {readiness.status === 'error' && (
+            <p className="wallet-notice wallet-notice--error" role="alert">{readiness.message}</p>
           )}
           {wallet.status === 'connected' && (
             <p className="wallet-notice" role="status">Wallet connected: {wallet.address}</p>
@@ -184,7 +252,7 @@ export function App() {
           {wallet.status === 'error' && (
             <p className="wallet-notice wallet-notice--error" role="alert">{wallet.message}</p>
           )}
-          <p className="foundation-note">Wallet-ready foundation · Public verification never requires a connection.</p>
+          <p className="foundation-note">Public verification needs no wallet. Issuing, buying, and transfers always require explicit Nimiq Pay approval.</p>
         </div>
 
         <article className="passport" aria-label="Example product passport">

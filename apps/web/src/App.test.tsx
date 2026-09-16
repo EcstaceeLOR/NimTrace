@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 
@@ -24,7 +24,7 @@ describe('App', () => {
     expect(await screen.findByText('Network ready')).toBeInTheDocument()
   })
 
-  it('keeps the public page usable and offers a Nimiq Pay deep link outside the host', async () => {
+  it('keeps the public page usable and offers the documented HTTPS Nimiq Pay entry point outside the host', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 'ok',
       service: 'nimtrace-api',
@@ -34,10 +34,8 @@ describe('App', () => {
     }))))
 
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: /view my passports/i }))
-
-    const fallback = await screen.findByRole('link', { name: /open nimtrace in nimiq pay/i })
-    expect(fallback).toHaveAttribute('href', expect.stringMatching(/^nimiqpay:\/\/miniapp\?url=/))
+    const fallback = await screen.findByRole('link', { name: /^open in nimiq pay$/i })
+    expect(fallback).toHaveAttribute('href', expect.stringMatching(/^https:\/\/nimpay\.app\/miniapps\/open\//))
     expect(screen.getByRole('heading', { name: /every product deserves proof that lasts/i })).toBeInTheDocument()
   })
 })

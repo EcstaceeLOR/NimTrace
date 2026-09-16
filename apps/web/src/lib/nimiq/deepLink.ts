@@ -13,5 +13,8 @@ export function createNimiqPayDeepLink(targetUrl: string): string {
     throw new WalletAdapterError('INVALID_REQUEST', 'The Mini App URL must use HTTP or HTTPS.')
   }
 
-  return `nimiqpay://miniapp?url=${encodeURIComponent(target.href)}`
+  // Nimiq Pay supports a custom URI too, but the HTTPS form is the right
+  // hand-off for a public website: it works from browsers, messages, QR codes,
+  // and devices where a custom URI has no registered handler.
+  return `https://nimpay.app/miniapps/open/${encodeURIComponent(target.host)}`
 }
