@@ -1,0 +1,17 @@
+{
+  "name": "NimTrace",
+  "short_name": "NimTrace",
+  "description": "Payment-backed, transferable product ownership and warranty passports.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090b10",
+  "theme_color": "#090b10",
+  "icons": [
+    {
+      "src": "/nimtrace-logo-v1.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
