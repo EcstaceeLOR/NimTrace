@@ -36,7 +36,9 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
   const [previewUrl, setPreviewUrl] = useState<string>()
   const [uploadedImage, setUploadedImage] = useState<ProductImageResponse>()
   const [shareMessage, setShareMessage] = useState<string>()
-  const imageInput = useRef<HTMLInputElement>(null)
+  const [selectedImage, setSelectedImage] = useState<File>()
+  const cameraInput = useRef<HTMLInputElement>(null)
+  const uploadInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -44,11 +46,14 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
 
   function selectImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
+    setSelectedImage(file || undefined)
     setPreviewUrl(file ? URL.createObjectURL(file) : undefined)
   }
 
   function removeSelection() {
-    if (imageInput.current) imageInput.current.value = ''
+    if (cameraInput.current) cameraInput.current.value = ''
+    if (uploadInput.current) uploadInput.current.value = ''
+    setSelectedImage(undefined)
     setPreviewUrl(undefined)
   }
 
@@ -59,7 +64,7 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
     let storedImage: ProductImageResponse | undefined
 
     try {
-      const image = form.get('image')
+      const image = selectedImage
       if (!(image instanceof File) || image.size === 0) throw new Error('Choose one product image.')
       const processedImage = await processProductImage(image)
       setState({ status: 'preparing', label: `Uploading safe ${processedImage.type === 'image/webp' ? 'WebP' : 'JPEG'} image`, progress: 25 })
@@ -182,18 +187,31 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
           <p className="issuer-state issuer-wide">Draft</p>
           <label>Product title<input name="title" required maxLength={120} /></label>
           <label>Serial or merchant reference<input name="serialReference" required maxLength={120} /></label>
-          <label>
-            Product image
-            <input
-              ref={imageInput}
-              name="image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
-              required
-              onChange={selectImage}
-            />
-          </label>
-          <p className="issuer-help issuer-wide">Upload a JPEG, PNG, WebP, or HEIC file from your device. On phones, the file picker may also offer the camera; NimTrace automatically falls back to JPEG when WebP is unavailable.</p>
+          <fieldset className="issuer-image-options issuer-wide">
+            <legend>Product image</legend>
+            <label className="button button--secondary issuer-image-option">
+              Take a photo
+              <input
+                ref={cameraInput}
+                name="cameraImage"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                capture="environment"
+                onChange={selectImage}
+              />
+            </label>
+            <label className="button button--secondary issuer-image-option">
+              Upload from device
+              <input
+                ref={uploadInput}
+                name="uploadImage"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                onChange={selectImage}
+              />
+            </label>
+            <small className="issuer-help">Choose either option. NimTrace keeps the original camera path and falls back to JPEG when WebP is unavailable.</small>
+          </fieldset>
           {previewUrl && (
             <div className="issuer-image-preview">
               <img src={previewUrl} alt="Selected product preview" />
