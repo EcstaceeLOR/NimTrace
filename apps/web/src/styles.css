@@ -195,6 +195,10 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 .route-page { width: min(760px, 100%); min-height: calc(100vh - 138px); display: grid; align-content: center; gap: 1.25rem; padding: 4rem 0; }
 .route-page h1 { margin: 0; font-size: clamp(2.8rem, 8vw, 5.8rem); letter-spacing: -0.06em; line-height: 0.94; }
 .route-page ol { display: grid; gap: 0.9rem; max-width: 64ch; padding-left: 1.5rem; color: var(--muted); line-height: 1.55; }
+.verify-form { display: grid; gap: 0.8rem; max-width: 520px; }
+.verify-form label { display: grid; gap: 0.45rem; color: var(--muted); font-size: 0.85rem; }
+.verify-form input { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; color: var(--text); background: rgba(255,255,255,.06); font: inherit; }
+.miniapp-tabs { display: none; }
 
 .status { display: inline-flex; align-items: center; gap: 8px; color: #a9b0bc; font-size: 0.78rem; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #77808d; box-shadow: 0 0 0 4px rgba(119, 128, 141, 0.1); }
@@ -237,6 +241,10 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
 @media (max-width: 800px) {
   main { padding-inline: 18px; }
   .nav-links { display: none; }
+  main { padding-bottom: 92px; }
+  .miniapp-tabs { position: fixed; z-index: 20; left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(4, 1fr); padding: 7px; border: 1px solid var(--line-strong); border-radius: 18px; background: rgba(18,23,32,.94); box-shadow: 0 18px 42px rgba(0,0,0,.38); backdrop-filter: blur(18px); }
+  .miniapp-tabs a { padding: .6rem .25rem; border-radius: 12px; color: var(--muted); text-align: center; text-decoration: none; font-size: .72rem; font-weight: 800; }
+  .miniapp-tabs a[aria-current='page'] { color: #07110f; background: var(--accent); }
   .hero { grid-template-columns: 1fr; padding-top: 50px; }
   .hero h1 { font-size: clamp(3rem, 15vw, 4.8rem); }
   .passport { min-height: 490px; }
