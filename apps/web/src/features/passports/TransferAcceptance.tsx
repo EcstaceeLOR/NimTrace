@@ -8,6 +8,7 @@ import {
 } from '@nimtrace/contracts'
 import { authenticateWallet } from '../../lib/nimiq/auth'
 import { nimiqPayWallet } from '../../lib/nimiq/wallet'
+import { MiniAppTabs } from '../../components/MiniAppTabs'
 
 export function TransferAcceptance({ fetcher = fetch, intentId }: { fetcher?: typeof fetch; intentId: string }) {
   const [intent, setIntent] = useState<TransferIntentResponse>()
@@ -96,6 +97,7 @@ export function TransferAcceptance({ fetcher = fetch, intentId }: { fetcher?: ty
         {state === 'done' && <div className="transfer-success"><h2>Passport received</h2><p>Ownership changed atomically. The former owner no longer has owner actions.</p><a className="button button--secondary" href="/">Back to NimTrace</a></div>}
         {state === 'error' && <div className="transfer-error" role="alert"><p>{message}</p><button className="button button--secondary" type="button" onClick={() => setState('idle')}>Try again</button></div>}
       </section>
+      <MiniAppTabs />
     </main>
   )
 }

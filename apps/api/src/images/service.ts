@@ -88,6 +88,49 @@ export function inspectWebP(bytes: Uint8Array) {
   return dimensions
 }
 
+export function inspectJpeg(bytes: Uint8Array) {
+  if (bytes.byteLength < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw new ProductImageError('invalid_image_content', 'The uploaded bytes are not a valid JPEG image.', 415)
+  }
+
+  let offset = 2
+  while (offset + 3 < bytes.byteLength) {
+    if (bytes[offset] !== 0xff) {
+      throw new ProductImageError('invalid_image_content', 'The JPEG marker stream is invalid.', 415)
+    }
+    while (bytes[offset] === 0xff) offset += 1
+    const marker = bytes[offset++]!
+    if (marker === 0xd9) break
+    if (marker === 0xda) break
+    if ((marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) continue
+    if (offset + 2 > bytes.byteLength) break
+    const length = (bytes[offset]! << 8) | bytes[offset + 1]!
+    if (length < 2 || offset + length > bytes.byteLength) {
+      throw new ProductImageError('invalid_image_content', 'The JPEG segment is truncated.', 415)
+    }
+    const isFrame = (marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7)
+      || (marker >= 0xc9 && marker <= 0xcb) || (marker >= 0xcd && marker <= 0xcf)
+    if (isFrame && length >= 7) {
+      const height = (bytes[offset + 3]! << 8) | bytes[offset + 4]!
+      const width = (bytes[offset + 5]! << 8) | bytes[offset + 6]!
+      if (
+        width < MIN_DIMENSION || height < MIN_DIMENSION
+        || width > MAX_DIMENSION || height > MAX_DIMENSION
+      ) {
+        throw new ProductImageError(
+          'invalid_image_dimensions',
+          `Images must be between ${MIN_DIMENSION} and ${MAX_DIMENSION} pixels on each side.`,
+          400,
+        )
+      }
+      return { width, height }
+    }
+    offset += length
+  }
+
+  throw new ProductImageError('invalid_image_content', 'The JPEG image has no complete frame.', 415)
+}
+
 async function sha256Bytes(bytes: ArrayBuffer) {
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
@@ -99,10 +142,11 @@ export async function storeProductImage(
   contentType: string | undefined,
   body: ArrayBuffer,
 ) {
-  if (contentType !== 'image/webp') {
+  const extension = contentType === 'image/jpeg' ? 'jpg' : contentType === 'image/webp' ? 'webp' : undefined
+  if (!extension) {
     throw new ProductImageError(
       'unsupported_image_type',
-      'Only client-processed WebP images are accepted. SVG and animated formats are rejected.',
+      'Only safe WebP or JPEG images are accepted. SVG and animated formats are rejected.',
       415,
     )
   }
@@ -111,15 +155,15 @@ export async function storeProductImage(
   }
 
   const bytes = new Uint8Array(body)
-  const dimensions = inspectWebP(bytes)
+  const dimensions = contentType === 'image/webp' ? inspectWebP(bytes) : inspectJpeg(bytes)
   const imageHash = await sha256Bytes(body)
   const walletPath = (await sha256Hex(walletAddress)).slice(0, 16)
-  const imageKey = `products/${walletPath}/${randomToken(18)}/${imageHash}.webp`
+  const imageKey = `products/${walletPath}/${randomToken(18)}/${imageHash}.${extension}`
 
   try {
     if (!bucket) throw new Error('R2 binding is unavailable')
     await bucket.put(imageKey, body, {
-      httpMetadata: { contentType: 'image/webp', cacheControl: 'public, max-age=31536000, immutable' },
+      httpMetadata: { contentType, cacheControl: 'public, max-age=31536000, immutable' },
       customMetadata: {
         contentHash: imageHash,
         height: String(dimensions.height),
@@ -176,7 +220,10 @@ export async function validateProductImageReference(
   }
 
   const walletPath = (await sha256Hex(walletAddress)).slice(0, 16)
-  if (!imageKey.startsWith(`products/${walletPath}/`) || !imageKey.endsWith(`/${imageHash}.webp`)) {
+  if (
+    !imageKey.startsWith(`products/${walletPath}/`)
+    || (!imageKey.endsWith(`/${imageHash}.webp`) && !imageKey.endsWith(`/${imageHash}.jpg`))
+  ) {
     throw new ProductImageError('invalid_image_reference', 'The product image reference is invalid.', 400)
   }
   const object = await bucket?.head(imageKey)

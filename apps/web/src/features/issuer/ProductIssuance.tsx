@@ -62,9 +62,9 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
       const image = form.get('image')
       if (!(image instanceof File) || image.size === 0) throw new Error('Choose one product image.')
       const processedImage = await processProductImage(image)
-      setState({ status: 'preparing', label: 'Uploading safe WebP image', progress: 25 })
+      setState({ status: 'preparing', label: `Uploading safe ${processedImage.type === 'image/webp' ? 'WebP' : 'JPEG'} image`, progress: 25 })
       storedImage = await uploadProductImage(processedImage, sessionToken, (progress) => {
-        setState({ status: 'preparing', label: 'Uploading safe WebP image', progress: 25 + Math.round(progress * 0.7) })
+        setState({ status: 'preparing', label: `Uploading safe ${processedImage.type === 'image/webp' ? 'WebP' : 'JPEG'} image`, progress: 25 + Math.round(progress * 0.7) })
       })
       setUploadedImage(storedImage)
       const priceLuna = nimToLuna(String(form.get('priceNim') ?? ''))
@@ -189,11 +189,11 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
               name="image"
               type="file"
               accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
-              capture="environment"
               required
               onChange={selectImage}
             />
           </label>
+          <p className="issuer-help issuer-wide">Upload a JPEG, PNG, WebP, or HEIC file from your device. On phones, the file picker may also offer the camera; NimTrace automatically falls back to JPEG when WebP is unavailable.</p>
           {previewUrl && (
             <div className="issuer-image-preview">
               <img src={previewUrl} alt="Selected product preview" />

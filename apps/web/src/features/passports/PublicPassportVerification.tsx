@@ -4,6 +4,7 @@ import {
   PublicPassportVerificationSchema,
   type PublicPassportVerification,
 } from '@nimtrace/contracts'
+import { MiniAppTabs } from '../../components/MiniAppTabs'
 
 interface PublicPassportVerificationProps {
   fetcher?: typeof fetch
@@ -163,6 +164,7 @@ export function PublicPassportVerification({
       </section>
 
       <footer className="verification-footer">Checked {dateTime(passport.checkedAt)} · Refresh this page for a new live chain check.</footer>
+      <MiniAppTabs />
     </main>
   )
 }

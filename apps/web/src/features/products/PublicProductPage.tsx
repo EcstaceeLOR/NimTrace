@@ -8,6 +8,7 @@ import {
 import { formatNimFromLuna } from '../../lib/formatting/nim'
 import { createNimiqPayDeepLink } from '../../lib/nimiq/deepLink'
 import { ProductCheckout } from './ProductCheckout'
+import { MiniAppTabs } from '../../components/MiniAppTabs'
 
 interface PublicProductPageProps {
   productId: string
@@ -119,6 +120,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
         </div>
         {qrCode && <img className="product-qr" src={qrCode} alt={`QR code for ${product.title} verification`} loading="lazy" decoding="async" />}
       </section>
+      <MiniAppTabs />
     </main>
   )
 }

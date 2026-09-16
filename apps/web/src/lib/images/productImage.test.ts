@@ -41,4 +41,24 @@ describe('product image source validation', () => {
     expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 1600, 800)
     expect(close).toHaveBeenCalled()
   })
+
+  it('falls back to JPEG when the device cannot encode WebP', async () => {
+    const close = vi.fn()
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 640, height: 480, close }))
+    const originalCreateElement = document.createElement.bind(document)
+    vi.spyOn(document, 'createElement').mockImplementation((tagName, options) => {
+      if (tagName !== 'canvas') return originalCreateElement(tagName, options)
+      return {
+        getContext: () => ({ drawImage: vi.fn() }),
+        height: 0,
+        toBlob: (callback: BlobCallback, type?: string) => callback(type === 'image/jpeg' ? new Blob(['safe-jpeg'], { type }) : null),
+        width: 0,
+      } as unknown as HTMLCanvasElement
+    })
+
+    const result = await processProductImage(new File(['camera-bytes'], 'camera.jpg', { type: 'image/jpeg' }))
+
+    expect(result.type).toBe('image/jpeg')
+    expect(close).toHaveBeenCalled()
+  })
 })

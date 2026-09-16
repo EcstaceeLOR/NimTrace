@@ -9,6 +9,7 @@ import { PublicPassportVerification } from './features/passports/PublicPassportV
 import { TransferAcceptance } from './features/passports/TransferAcceptance'
 import { MerchantPresentation } from './features/passports/MerchantPresentation'
 import { applyAppLanguage } from './lib/i18n'
+import { MiniAppTabs } from './components/MiniAppTabs'
 
 type ApiState =
   | { status: 'checking' }
@@ -29,17 +30,6 @@ type WalletReadiness =
   | { status: 'ready'; blockNumber: number }
   | { status: 'cancelled' }
   | { status: 'error'; message: string }
-
-function MiniAppTabs() {
-  const path = window.location.pathname
-  const links = [
-    ['/', 'Home'],
-    ['/verify', 'Verify'],
-    ['/issue', 'Issue'],
-    ['/wallet', 'Wallet'],
-  ] as const
-  return <nav className="miniapp-tabs" aria-label="Mini App navigation">{links.map(([href, label]) => <a key={href} href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}</nav>
-}
 
 export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })

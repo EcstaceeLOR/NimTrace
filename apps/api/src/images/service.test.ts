@@ -27,6 +27,17 @@ function webp(width = 640, height = 480) {
   return bytes
 }
 
+function jpeg(width = 640, height = 480) {
+  return Uint8Array.from([
+    0xff, 0xd8,
+    0xff, 0xc0, 0x00, 0x11, 0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+    0xff, 0xd9,
+  ])
+}
+
 describe('safe product image storage', () => {
   it('validates decoded WebP dimensions and stores by hash under an unguessable path', async () => {
     const put = vi.fn().mockResolvedValue(undefined)
@@ -49,6 +60,21 @@ describe('safe product image storage', () => {
         customMetadata: expect.objectContaining({ contentHash: result.imageHash, height: '480', width: '640' }),
       }),
     )
+  })
+
+  it('stores a validated JPEG fallback when WebP encoding is unavailable', async () => {
+    const put = vi.fn().mockResolvedValue(undefined)
+    const bytes = jpeg()
+    const result = await storeProductImage(
+      { put } as unknown as R2Bucket,
+      'NQ12 TEST WALLET ADDRESS',
+      'image/jpeg',
+      bytes.buffer,
+    )
+
+    expect(result).toMatchObject({ bytes: bytes.byteLength, fallback: false, height: 480, width: 640 })
+    expect(result.imageKey).toMatch(/\.jpg$/)
+    expect(put).toHaveBeenCalledWith(result.imageKey, bytes.buffer, expect.objectContaining({ httpMetadata: expect.objectContaining({ contentType: 'image/jpeg' }) }))
   })
 
   it('rejects spoofed, truncated, active, oversized, and invalid-dimension inputs', async () => {

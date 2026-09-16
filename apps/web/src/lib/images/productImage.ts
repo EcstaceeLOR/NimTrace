@@ -46,13 +46,22 @@ export async function processProductImage(file: File): Promise<Blob> {
     const output = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/webp', 0.84)
     })
-    if (!output || output.type !== 'image/webp') {
-      throw new Error('This device could not create a safe WebP image.')
+    if (output?.type === 'image/webp' && output.size <= 1_500_000) {
+      return output
     }
-    if (output.size > 1_500_000) {
-      throw new Error('The processed image is still larger than 1.5 MB. Choose a simpler image.')
+
+    // Some embedded WebViews (including older Nimiq Pay devices) cannot encode WebP.
+    // JPEG is still safe after the same dimension checks and is accepted by the API.
+    const fallback = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', 0.82)
+    })
+    if (fallback?.type === 'image/jpeg' && fallback.size <= 1_500_000) {
+      return fallback
     }
-    return output
+    if (output?.size && output.size > 1_500_000) {
+      throw new Error('The processed image is larger than 1.5 MB. Choose a simpler image.')
+    }
+    throw new Error('This device could not create a safe image. Choose an existing JPEG or PNG file and retry.')
   } finally {
     bitmap.close()
   }
@@ -67,7 +76,7 @@ export function uploadProductImage(
     const request = new XMLHttpRequest()
     request.open('POST', '/api/product-images')
     request.setRequestHeader('Authorization', `Bearer ${sessionToken}`)
-    request.setRequestHeader('Content-Type', 'image/webp')
+    request.setRequestHeader('Content-Type', image.type)
     request.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100))
     })
