@@ -24,6 +24,6 @@
     "ENVIRONMENT": "production",
     "APP_VERSION": "0.1.0",
     "NIMIQ_NETWORK": "main-albatross"
-    ,"CORS_ORIGIN": "https://nimtrace-api.nimtrace.workers.dev"
+    ,"CORS_ORIGIN": "https://nimtrace.vercel.app"
   }
 }
