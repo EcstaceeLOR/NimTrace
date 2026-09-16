@@ -1,10 +1,11 @@
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
-import { HealthResponseSchema, type HealthResponse } from '@nimtrace/contracts'
+import { HealthResponseSchema, type HealthResponse, type WalletSessionResponse } from '@nimtrace/contracts'
 import { authenticateWallet } from './lib/nimiq/auth'
 import { nimiqPayWallet } from './lib/nimiq/wallet'
 import { ProductIssuance } from './features/issuer/ProductIssuance'
 import { MerchantCommandCenter } from './features/issuer/MerchantCommandCenter'
 import { PublicProductPage } from './features/products/PublicProductPage'
+import { ProductCatalogue } from './features/products/ProductCatalogue'
 import { PassportCollection } from './features/passports/PassportCollection'
 import { PublicPassportVerification } from './features/passports/PublicPassportVerification'
 import { TransferAcceptance } from './features/passports/TransferAcceptance'
@@ -14,14 +15,14 @@ import { applyAppLanguage } from './lib/i18n'
 import { MiniAppTabs } from './components/MiniAppTabs'
 
 type ApiState =
-  | { status: 'checking' }
+  | { status: 'checking'; health?: HealthResponse }
   | { status: 'online'; health: HealthResponse }
-  | { status: 'offline' }
+  | { status: 'offline'; health?: HealthResponse }
 
 type WalletState =
   | { status: 'idle' }
   | { status: 'authenticating' }
-  | { status: 'connected'; address: string; sessionToken: string }
+  | { status: 'connected'; address: string; sessionToken: string; expiresAt: string }
   | { status: 'cancelled' }
   | { status: 'outside'; deepLink: string }
   | { status: 'error'; message: string }
@@ -33,14 +34,43 @@ type WalletReadiness =
   | { status: 'cancelled' }
   | { status: 'error'; message: string }
 
+const WALLET_SESSION_KEY = 'nimtrace.walletSession'
+
+function readWalletSession(): WalletState {
+  if (typeof window === 'undefined') return { status: 'idle' }
+  try {
+    const raw = window.sessionStorage.getItem(WALLET_SESSION_KEY)
+    if (!raw) return { status: 'idle' }
+    const session = JSON.parse(raw) as Partial<WalletSessionResponse>
+    if (!session.walletAddress || !session.sessionToken || !session.expiresAt || Date.parse(session.expiresAt) <= Date.now()) {
+      window.sessionStorage.removeItem(WALLET_SESSION_KEY)
+      return { status: 'idle' }
+    }
+    return {
+      status: 'connected',
+      address: session.walletAddress,
+      sessionToken: session.sessionToken,
+      expiresAt: session.expiresAt,
+    }
+  } catch {
+    window.sessionStorage.removeItem(WALLET_SESSION_KEY)
+    return { status: 'idle' }
+  }
+}
+
+function saveWalletSession(session: WalletSessionResponse) {
+  window.sessionStorage.setItem(WALLET_SESSION_KEY, JSON.stringify(session))
+}
+
 export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })
-  const [wallet, setWallet] = useState<WalletState>({ status: 'idle' })
+  const [wallet, setWallet] = useState<WalletState>(() => readWalletSession())
   const [readiness, setReadiness] = useState<WalletReadiness>({ status: 'idle' })
   const [showIssuer, setShowIssuer] = useState(false)
   const [verificationId, setVerificationId] = useState('')
   const [scanMessage, setScanMessage] = useState('')
   const [scanState, setScanState] = useState<'idle' | 'reading'>('idle')
+  const [verificationState, setVerificationState] = useState<'idle' | 'resolving'>('idle')
   const miniAppAvailable = nimiqPayWallet.isAvailable()
   const miniAppLink = nimiqPayWallet.deepLink()
   const productRoute = /^\/products\/([^/]+)\/?$/.exec(window.location.pathname)
@@ -53,6 +83,7 @@ export function App() {
   const merchantRoute = window.location.pathname === '/merchant'
   const howItWorksRoute = window.location.pathname === '/how-it-works'
   const verifyRoute = window.location.pathname === '/verify'
+  const catalogueRoute = window.location.pathname === '/catalogue'
 
   useEffect(() => {
     applyAppLanguage()
@@ -91,7 +122,9 @@ export function App() {
         status: 'connected',
         address: outcome.session.walletAddress,
         sessionToken: outcome.session.sessionToken,
+        expiresAt: outcome.session.expiresAt,
       })
+      saveWalletSession(outcome.session)
     } else if (outcome.status === 'cancelled') {
       setWallet({ status: 'cancelled' })
     } else {
@@ -116,7 +149,9 @@ export function App() {
         status: 'connected',
         address: outcome.session.walletAddress,
         sessionToken: outcome.session.sessionToken,
+        expiresAt: outcome.session.expiresAt,
       })
+      saveWalletSession(outcome.session)
       setShowIssuer(true)
     } else if (outcome.status === 'cancelled') {
       setWallet({ status: 'cancelled' })
@@ -152,6 +187,12 @@ export function App() {
     }
   }
 
+  function disconnectWallet() {
+    window.sessionStorage.removeItem(WALLET_SESSION_KEY)
+    setWallet({ status: 'idle' })
+    setShowIssuer(false)
+  }
+
   if (productRoute?.[1]) {
     return <PublicProductPage productId={decodeURIComponent(productRoute[1])} />
   }
@@ -176,8 +217,35 @@ export function App() {
     return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/issue">Issue</a><a href="/wallet">My passports</a></div></nav><section className="route-page"><p className="eyebrow">HOW NIMTRACE WORKS</p><h1>Proof follows the product.</h1><ol><li>An issuer signs the product passport with their Nimiq wallet.</li><li>A buyer pays the issuer directly in NIM from Nimiq Pay.</li><li>NimTrace independently verifies the tagged on-chain payment.</li><li>The buyer receives a portable passport, warranty, and service history.</li><li>The owner can verify, transfer, or present it without exposing private keys.</li></ol><div className="demo-harness"><p className="eyebrow">SAFE REAL-DEVICE CHECK</p><h2>{api.health?.network === 'test-albatross' ? 'Testnet mode active' : 'Mainnet mode active'}</h2><p>{api.health?.network === 'test-albatross' ? 'Use test NIM and two test wallets for the full issue → pay → verify → transfer walkthrough.' : 'This deployment is configured for mainnet. Do not send funds while validating the demo; switch the API to test-albatross for a safe rehearsal.'}</p><ol><li>Open NimTrace in Nimiq Pay using Custom URL.</li><li>Check wallet connection and consensus on the home page.</li><li>Use one wallet to issue, a second wallet to pay, then open the public passport without a wallet.</li><li>Capture the QR or upload it on Verify, then test transfer only with test funds.</li></ol></div><a className="button button--primary" href="/issue">Issue your first product</a></section><MiniAppTabs /></main>
   }
 
+  if (catalogueRoute) {
+    return <ProductCatalogue />
+  }
+
   if (verifyRoute) {
-    function openVerification(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const id = verificationId.trim(); if (id) window.location.assign(`/passports/${encodeURIComponent(id)}`) }
+    async function openVerification(event: FormEvent<HTMLFormElement>) {
+      event.preventDefault()
+      const id = verificationId.trim()
+      if (!id) return
+      setVerificationState('resolving')
+      setScanMessage('Looking up product and passport proof…')
+      try {
+        const passportResponse = await fetch(`/api/passports/${encodeURIComponent(id)}/verification`)
+        if (passportResponse.ok) {
+          window.location.assign(`/passports/${encodeURIComponent(id)}`)
+          return
+        }
+        const productResponse = await fetch(`/api/products/${encodeURIComponent(id)}`)
+        if (productResponse.ok) {
+          setScanMessage('Product listing found. Opening its signed proof…')
+          window.location.assign(`/products/${encodeURIComponent(id)}`)
+          return
+        }
+        throw new Error('No product or passport was found for that ID. Use the Product ID from issuance, or the Passport ID shown after a confirmed purchase.')
+      } catch (error) {
+        setVerificationState('idle')
+        setScanMessage(error instanceof Error ? error.message : 'The product or passport could not be found.')
+      }
+    }
     async function scanQrImage(event: ChangeEvent<HTMLInputElement>) {
       const file = event.target.files?.[0]
       if (!file) return
@@ -192,16 +260,18 @@ export function App() {
           const rawValue = result[0]?.rawValue
           if (!rawValue) throw new Error('No QR code was found in that image.')
           const url = new URL(rawValue, window.location.origin)
-          const match = /^\/passports\/([^/]+)\/?$/.exec(url.pathname)
+          const passportMatch = /^\/passports\/([^/]+)\/?$/.exec(url.pathname)
+          const productMatch = /^\/products\/([^/]+)\/?$/.exec(url.pathname)
           const allowedHost = url.hostname === window.location.hostname || url.hostname === 'nimtrace.vercel.app'
-          if (!allowedHost || url.search || url.hash || !match) throw new Error('That QR is not a NimTrace passport link.')
-          setVerificationId(decodeURIComponent(match[1]!))
-          setScanMessage('Passport QR read. Opening independent verification…')
-          window.location.assign(`/passports/${encodeURIComponent(decodeURIComponent(match[1]!))}`)
+          if (!allowedHost || url.search || url.hash || (!passportMatch && !productMatch)) throw new Error('That QR is not a NimTrace product or passport link.')
+          const target = passportMatch ? `/passports/${encodeURIComponent(decodeURIComponent(passportMatch[1]!))}` : `/products/${encodeURIComponent(decodeURIComponent(productMatch![1]!))}`
+          setVerificationId(decodeURIComponent((passportMatch ?? productMatch)![1]!))
+          setScanMessage('NimTrace QR read. Opening signed proof…')
+          window.location.assign(target)
         } finally { bitmap.close() }
       } catch (error) { setScanState('idle'); setScanMessage(error instanceof Error ? error.message : 'The QR image could not be read.') }
     }
-    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a passport in seconds.</h1><p className="lede">Take a QR photo, upload a QR screenshot, or paste the passport ID below. You never need to connect a wallet to validate public proof.</p><div className="verify-upload"><label className={`button button--secondary${scanState === 'reading' ? ' is-disabled' : ''}`}>Take QR photo<input type="file" accept="image/*" capture="environment" disabled={scanState === 'reading'} onChange={(event) => void scanQrImage(event)} /></label><label className={`button button--secondary${scanState === 'reading' ? ' is-disabled' : ''}`}>Upload QR image<input type="file" accept="image/*" disabled={scanState === 'reading'} onChange={(event) => void scanQrImage(event)} /></label><span>or enter the ID manually</span></div><form className="verify-form" onSubmit={openVerification}><label>Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste passport ID" autoComplete="off" required /></label><button className="button button--primary">Verify passport</button></form>{scanMessage && <p className="foundation-note" role="status">{scanMessage}</p>}</section><MiniAppTabs /></main>
+    return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Public verification</span></nav><section className="route-page"><p className="eyebrow">VERIFY WITHOUT A WALLET</p><h1>Check a product or passport.</h1><p className="lede">Use a Product ID for an issued listing, or a Passport ID after a confirmed NIM purchase. Take a QR photo, upload a QR screenshot, or paste either ID below.</p><div className="verify-upload"><label className={`button button--secondary${scanState === 'reading' ? ' is-disabled' : ''}`}>Take QR photo<input type="file" accept="image/*" capture="environment" disabled={scanState === 'reading'} onChange={(event) => void scanQrImage(event)} /></label><label className={`button button--secondary${scanState === 'reading' ? ' is-disabled' : ''}`}>Upload QR image<input type="file" accept="image/*" disabled={scanState === 'reading'} onChange={(event) => void scanQrImage(event)} /></label><span>or enter an ID manually</span></div><form className="verify-form" onSubmit={(event) => void openVerification(event)}><label>Product or Passport ID<input value={verificationId} onChange={(event) => setVerificationId(event.target.value)} placeholder="Paste Product ID or Passport ID" autoComplete="off" required /></label><button className="button button--primary" disabled={verificationState === 'resolving'}>{verificationState === 'resolving' ? 'Looking up…' : 'Open signed proof'}</button></form>{scanMessage && <p className="foundation-note" role="status">{scanMessage}</p>}</section><MiniAppTabs /></main>
   }
 
   if (issueRoute || walletRoute || merchantRoute) {
@@ -217,7 +287,7 @@ export function App() {
         <PassportCollection
           address={wallet.address}
           sessionToken={wallet.sessionToken}
-          onBack={() => setWallet({ status: 'idle' })}
+          onBack={disconnectWallet}
         />
         <MiniAppTabs />
       </main>

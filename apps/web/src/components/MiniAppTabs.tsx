@@ -3,6 +3,7 @@ export function MiniAppTabs() {
   const links = [
     ['/', 'Home'],
     ['/verify', 'Verify'],
+    ['/catalogue', 'Browse'],
     ['/issue', 'Issue'],
     ['/wallet', 'Wallet'],
     ['/merchant', 'Studio'],

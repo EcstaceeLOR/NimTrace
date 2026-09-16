@@ -266,6 +266,7 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
           <p className="issuer-state">Published</p>
           <h3>Signed product issued.</h3>
           <p>Product ID: <code>{state.id}</code></p>
+          <p className="issuer-help">This is the public listing ID. A wallet-owned Passport ID is created for the buyer after the NIM purchase is confirmed.</p>
           <a className="button button--primary" href={`/products/${encodeURIComponent(state.id)}`}>View public product</a>
           <button className="button button--secondary" type="button" onClick={() => void sharePublishedProduct(state.id)}>Share purchase link</button>
           {shareMessage && <p className="issuer-help" role="status">{shareMessage}</p>}

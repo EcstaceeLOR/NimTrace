@@ -16,7 +16,7 @@ import {
 import { AuthServiceError, createWalletSession, issueWalletChallenge } from './auth/service'
 import { SessionAuthenticationError, authenticatedWallet } from './auth/session'
 import { ProductServiceError, createPublishedProduct, issueProductProof } from './products/service'
-import { PublicProductError, getPublicProduct } from './products/public'
+import { PublicProductError, getPublicProduct, listPublicProducts } from './products/public'
 import { listMerchantProducts } from './products/merchant'
 import {
   PaymentIntentServiceError,
@@ -467,6 +467,10 @@ app.get('/api/products/:productId', async (c) => {
     version,
   )
   return c.json(product, 200, { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=300' })
+})
+
+app.get('/api/products', async (c) => {
+  return c.json(await listPublicProducts(c.env.DB, networkFromEnvironment(c.env.NIMIQ_NETWORK), c.req.query('search')), 200, { 'Cache-Control': 'public, max-age=15, stale-while-revalidate=60' })
 })
 
 app.post('/api/product-images', async (c) => {

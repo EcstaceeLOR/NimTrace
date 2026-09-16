@@ -47,7 +47,7 @@ export async function listMerchantProducts(db: D1Database, walletAddress: string
     passportStatus: row.passport_status,
     priceLuna: row.price_luna,
     purchaserMasked: maskAddress(row.current_owner_address),
-    state: row.product_status === 'offered' ? 'available' : row.product_status,
+    state: row.product_status === 'offered' ? 'available' : row.product_status === 'sold' ? 'owned' : row.product_status,
     title: row.title,
     warrantyDurationDays: row.warranty_duration_days,
     warrantySummary: row.warranty_summary,

@@ -1,6 +1,7 @@
 import {
   ProductPayloadSchema,
   ProofEnvelopeSchema,
+  PublicProductListResponseSchema,
   type NimiqNetwork,
   type PublicProductResponse,
 } from '@nimtrace/contracts'
@@ -143,4 +144,28 @@ export async function getPublicProduct(
     warrantyDurationDays: signed?.warrantyDurationDays ?? row.warranty_duration_days,
     warrantySummary: signed?.warrantySummary ?? row.warranty_summary,
   }
+}
+
+export async function listPublicProducts(
+  db: D1Database,
+  network: NimiqNetwork,
+  search = '',
+) {
+  const needle = search.trim().slice(0, 80)
+  const query = needle
+    ? `SELECT id FROM products WHERE status = 'offered' AND (title LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`
+    : `SELECT id FROM products WHERE status = 'offered' ORDER BY updated_at DESC LIMIT 50`
+  const rows = needle
+    ? await db.prepare(query).bind(`%${needle}%`, `%${needle}%`).all<{ id: string }>()
+    : await db.prepare(query).all<{ id: string }>()
+  const items: PublicProductResponse[] = []
+  for (const row of rows.results) {
+    try {
+      const product = await getPublicProduct(db, row.id, network)
+      if (product.signatureState === 'verified' && product.state === 'available') items.push(product)
+    } catch {
+      // Ignore a malformed listing; the public catalogue must never expose unverified records.
+    }
+  }
+  return PublicProductListResponseSchema.parse({ items })
 }

@@ -462,3 +462,24 @@ main { width: min(1180px, 100%); margin: 0 auto; padding: env(safe-area-inset-to
   .verification-qr-card { border: 0; }
   .verification-qr-card img { width: 75mm; }
 }
+/* Public buyer catalogue */
+.catalogue-shell { width: min(1120px, 100%); margin: 0 auto; }
+.catalogue-hero { padding: clamp(3rem, 8vw, 6rem) 0 2rem; }
+.catalogue-hero h1 { max-width: 760px; margin: 0.35rem 0 0.8rem; font-size: clamp(2.8rem, 7vw, 5.8rem); letter-spacing: -0.055em; line-height: 0.95; }
+.catalogue-hero > p:not(.eyebrow) { max-width: 680px; color: var(--muted); line-height: 1.55; }
+.catalogue-hero form { display: flex; gap: 0.7rem; max-width: 680px; margin-top: 2rem; }
+.catalogue-hero form input { flex: 1; min-width: 0; }
+.catalogue-results { padding: 2rem 0 5rem; }
+.catalogue-results__heading { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+.catalogue-results__heading h2 { margin: 0; }
+.catalogue-results__heading span { color: var(--muted); }
+.catalogue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.catalogue-card { overflow: hidden; border: 1px solid var(--line); border-radius: 1.2rem; background: var(--surface); box-shadow: 0 18px 50px rgba(20, 42, 38, 0.08); }
+.catalogue-card > img { display: block; width: 100%; aspect-ratio: 1.45; object-fit: cover; background: var(--surface-strong); }
+.catalogue-card__body { display: grid; gap: 0.7rem; padding: 1.2rem; }
+.catalogue-card__body h2 { margin: 0; font-size: 1.25rem; }
+.catalogue-card__body p { min-height: 3.1em; margin: 0; color: var(--muted); line-height: 1.5; }
+.catalogue-card__body small { color: var(--muted); }
+.catalogue-price { color: var(--accent); font-size: 1.3rem; }
+@media (max-width: 800px) { .catalogue-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .catalogue-hero form { align-items: stretch; flex-direction: column; } }
