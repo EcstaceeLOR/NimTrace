@@ -71,6 +71,12 @@ The scheduled recovery and cleanup behavior is specified in
 
 ## Physical-device gate
 
+The deterministic gate is covered by `ProductCheckout.test.tsx` and API payment
+tests: server-owned review values, duplicate-tap locking, cancellation,
+submission-without-confirmation, delayed verification, reload reconciliation,
+and retry without a second wallet payment. The production web deployment proxies
+`/api` to the independently deployed Worker, preserving same-origin behavior.
+
 On a real Nimiq Pay phone, validate the following before closing issue #10:
 
 1. Load a signed test product through the Nimiq Pay WebView.
