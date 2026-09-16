@@ -63,7 +63,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
   if (state.status === 'error') {
     return (
       <main className="public-product-shell">
-        <a className="brand" href="/"><span className="brand-mark">N</span>NimTrace</a>
+        <a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a>
         <section className="product-error" role="alert"><h1>Unable to verify product</h1><p>{state.message}</p></section>
       </main>
     )

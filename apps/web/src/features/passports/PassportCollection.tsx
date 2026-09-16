@@ -263,7 +263,7 @@ export function PassportCollection({
   return (
     <section className="passport-collection" aria-labelledby="collection-title">
       <nav className="nav">
-        <button className="brand passport-brand-button" type="button" onClick={onBack}><span className="brand-mark">N</span>NimTrace</button>
+        <button className="brand passport-brand-button" type="button" onClick={onBack}><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</button>
         <span className="wallet-chip" title={address}>{shortAddress(address)}</span>
       </nav>
       <header className="passport-collection__header">

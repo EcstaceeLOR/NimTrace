@@ -95,7 +95,7 @@ export function PublicPassportVerification({
   return (
     <main className={`public-verification public-verification--${passport.overallState}`}>
       <nav className="nav verification-nav">
-        <a className="brand" href="/"><span className="brand-mark">N</span>NimTrace</a>
+        <a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a>
         <span>Public proof · no wallet needed</span>
       </nav>
 

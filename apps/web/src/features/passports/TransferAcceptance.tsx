@@ -85,7 +85,7 @@ export function TransferAcceptance({ fetcher = fetch, intentId }: { fetcher?: ty
 
   return (
     <main className="transfer-acceptance">
-      <nav className="nav"><a className="brand" href="/"><span className="brand-mark">N</span>NimTrace</a><span>Recipient-bound gift</span></nav>
+      <nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Recipient-bound gift</span></nav>
       <section className="transfer-acceptance__card">
         <p className="eyebrow">PASSPORT TRANSFER</p>
         <h1>Receive a product passport.</h1>
