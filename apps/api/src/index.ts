@@ -70,19 +70,21 @@ export const app = new Hono<{ Bindings: Bindings }>()
 // make browser requests, while public verification remains cacheable/read-only.
 app.use('*', async (c, next) => {
   const origin = c.req.header('Origin')
-  const allowedOrigin = c.env.CORS_ORIGIN?.trim()
+  const requestOrigin = new URL(c.req.url).origin
+  const allowedOrigins = new Set([requestOrigin, c.env.CORS_ORIGIN?.trim()].filter(Boolean))
+  const originAllowed = Boolean(origin && allowedOrigins.has(origin))
   if (c.req.method === 'OPTIONS') {
-    if (origin && allowedOrigin && origin !== allowedOrigin) {
+    if (origin && !originAllowed) {
       return c.json({ error: 'forbidden_origin', message: 'Origin is not allowed.' }, 403)
     }
     return new Response(null, { status: 204, headers: {
       'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
       'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-      ...(origin && allowedOrigin === origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}),
+      ...(originAllowed ? { 'Access-Control-Allow-Origin': origin!, Vary: 'Origin' } : {}),
     } })
   }
 
-  if (origin && allowedOrigin && origin !== allowedOrigin) {
+  if (origin && !originAllowed) {
     return c.json({ error: 'forbidden_origin', message: 'Origin is not allowed.' }, 403)
   }
 
@@ -92,7 +94,7 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff')
   c.header('X-Frame-Options', 'DENY')
   c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
-  if (origin && allowedOrigin === origin) {
+  if (originAllowed) {
     c.header('Access-Control-Allow-Origin', origin)
     c.header('Vary', 'Origin')
   }
