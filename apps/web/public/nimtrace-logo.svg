@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">NimTrace logo</title>
+  <desc id="desc">A mint-green product path crossing a violet verification trace on a deep navy badge.</desc>
+  <defs>
+    <linearGradient id="badge" x1="72" y1="40" x2="440" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#142f82"/>
+      <stop offset="1" stop-color="#06153f"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="148" y1="118" x2="372" y2="408" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#75ffd2"/>
+      <stop offset="1" stop-color="#13cf8e"/>
+    </linearGradient>
+    <linearGradient id="violet" x1="150" y1="104" x2="366" y2="414" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b98cff"/>
+      <stop offset="1" stop-color="#5d22e9"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="128" fill="url(#badge)"/>
+  <path d="M154 128v228c0 17 9 33 24 42l42 25V250l-66-44v-78Z" fill="url(#mint)"/>
+  <path d="M358 384V156c0-17-9-33-24-42l-42-25v173l66 44v78Z" fill="url(#mint)"/>
+  <path d="M170 148 342 364" fill="none" stroke="url(#mint)" stroke-width="52" stroke-linecap="round"/>
+  <path d="M170 148 342 364" fill="none" stroke="#b5ffe8" stroke-opacity=".45" stroke-width="3"/>
+  <path d="M174 128h48c19 0 34 15 34 34v77c0 19 15 34 34 34h48" fill="none" stroke="url(#violet)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <circle cx="174" cy="128" r="25" fill="url(#violet)" filter="url(#glow)"/>
+  <circle cx="174" cy="128" r="9" fill="#fff"/>
+  <circle cx="338" cy="273" r="25" fill="url(#violet)" filter="url(#glow)"/>
+  <circle cx="338" cy="273" r="9" fill="#fff"/>
+  <circle cx="338" cy="384" r="25" fill="url(#violet)" filter="url(#glow)"/>
+  <circle cx="338" cy="384" r="9" fill="#fff"/>
+</svg>
