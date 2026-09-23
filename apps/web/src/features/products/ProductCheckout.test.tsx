@@ -86,6 +86,19 @@ function verification(
   }))
 }
 
+function finalityVerification(confirmations: number) {
+  return new Response(JSON.stringify({
+    blockHeight: 120,
+    checkedAt: '2026-09-14T12:01:00.000Z',
+    confirmations,
+    finalityConfirmations: 60,
+    id: intent.id,
+    reason: 'awaiting_finality',
+    state: 'pending',
+    transactionHash: 'd'.repeat(64),
+  }))
+}
+
 function issuedPassport() {
   return new Response(JSON.stringify({
     auditState: 'verified',
@@ -137,6 +150,7 @@ describe('ProductCheckout', () => {
 
     expect(await screen.findByText('Payment submitted')).toBeInTheDocument()
     expect(screen.getByText(/not yet a completed purchase/i)).toBeInTheDocument()
+    expect(screen.getByText(/checking automatically/i)).toBeInTheDocument()
     expect(checkoutWallet.pay).toHaveBeenCalledTimes(1)
     expect(checkoutWallet.pay).toHaveBeenCalledWith({
       recipient: intent.sellerAddress,
@@ -146,6 +160,41 @@ describe('ProductCheckout', () => {
     })
     expect(fetcher).toHaveBeenNthCalledWith(2, `/api/payment-intents/${intent.id}/submissions`, expect.objectContaining({
       body: JSON.stringify({ transactionHash: 'd'.repeat(64) }),
+    }))
+  })
+
+  it('automatically advances finality progress into the issued ownership proof', async () => {
+    const checkoutWallet = wallet()
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(intent), { status: 201 }))
+      .mockResolvedValueOnce(submission())
+      .mockResolvedValueOnce(finalityVerification(24))
+      .mockResolvedValueOnce(verification('verified'))
+      .mockResolvedValueOnce(issuedPassport())
+
+    render(<ProductCheckout
+      authenticate={vi.fn().mockResolvedValue(authentication)}
+      fetcher={fetcher}
+      product={product}
+      publicUrl="https://nimtrace.example/products/test"
+      reconcileIntervalMs={100}
+      storage={storage()}
+      wallet={checkoutWallet}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Buy with NIM' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Pay 1 NIM' }))
+
+    expect(await screen.findByText(/24 \/ 60 confirmations/i)).toBeInTheDocument()
+    expect(screen.getByText(/about a minute after inclusion/i)).toBeInTheDocument()
+    expect(await screen.findByText('Payment confirmed — ownership proof ready')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open ownership proof' })).toHaveAttribute('href', `/passports/${passportId}`)
+    expect(checkoutWallet.pay).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenNthCalledWith(4, `/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
+      headers: { Authorization: `Bearer ${authentication.session.sessionToken}` },
+    }))
+    expect(fetcher).toHaveBeenNthCalledWith(5, `/api/payment-intents/${intent.id}/completion`, expect.objectContaining({
+      method: 'POST',
     }))
   })
 
