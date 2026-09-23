@@ -6,12 +6,14 @@ import {
   type PublicProductResponse,
 } from '@nimtrace/contracts'
 import { DEMO_IMAGE_KEY } from '../images/service'
+import { INCLUSION_GRACE_MS } from '../payments/verification'
 import { verifySignedProof } from '../proofs/verifier'
 
 interface PublicProductRow {
   canonical_payload: string
   current_version: number
   description: string
+  has_active_checkout: number
   image_key: string | null
   issued_at: string
   issuer_address: string
@@ -31,7 +33,12 @@ interface PublicProductRow {
 
 export class PublicProductError extends Error {}
 
-async function productRow(db: D1Database, productId: string, version?: number) {
+async function productRow(
+  db: D1Database,
+  productId: string,
+  activeCheckoutCutoff: string,
+  version?: number,
+) {
   const base = `
     SELECT
       products.id AS product_id,
@@ -45,6 +52,19 @@ async function productRow(db: D1Database, productId: string, version?: number) {
       products.warranty_summary,
       products.status AS product_status,
       products.current_version,
+      CASE WHEN EXISTS (
+        SELECT 1
+        FROM payment_intents
+        WHERE payment_intents.product_id = products.id
+          AND payment_intents.purpose = 'initial_purchase'
+          AND (
+            payment_intents.status IN ('submitted', 'confirmed')
+            OR (
+              payment_intents.status = 'pending'
+              AND payment_intents.expires_at > ?
+            )
+          )
+      ) THEN 1 ELSE 0 END AS has_active_checkout,
       product_versions.version,
       product_versions.canonical_payload,
       product_versions.payload_hash,
@@ -58,10 +78,10 @@ async function productRow(db: D1Database, productId: string, version?: number) {
   `
   if (version === undefined) {
     return db.prepare(`${base} AND product_versions.version = products.current_version`)
-      .bind(productId).first<PublicProductRow>()
+      .bind(activeCheckoutCutoff, productId).first<PublicProductRow>()
   }
   return db.prepare(`${base} AND product_versions.version = ?`)
-    .bind(productId, version).first<PublicProductRow>()
+    .bind(activeCheckoutCutoff, productId, version).first<PublicProductRow>()
 }
 
 export async function getPublicProduct(
@@ -69,8 +89,10 @@ export async function getPublicProduct(
   productId: string,
   network: NimiqNetwork,
   version?: number,
+  now = new Date(),
 ): Promise<PublicProductResponse> {
-  const row = await productRow(db, productId, version)
+  const activeCheckoutCutoff = new Date(now.getTime() - INCLUSION_GRACE_MS).toISOString()
+  const row = await productRow(db, productId, activeCheckoutCutoff, version)
   if (!row) throw new PublicProductError('Product not found.')
 
   const wrappedPayload = (() => {
@@ -119,7 +141,9 @@ export async function getPublicProduct(
       : row.product_status === 'retired' || row.version < row.current_version
         ? 'replaced'
         : row.product_status === 'offered'
-          ? 'available'
+          ? row.has_active_checkout === 1
+            ? 'checked_out'
+            : 'available'
           : row.product_status === 'sold'
             ? 'owned'
             : 'invalid'
@@ -153,8 +177,8 @@ export async function listPublicProducts(
 ) {
   const needle = search.trim().slice(0, 80)
   const query = needle
-    ? `SELECT id FROM products WHERE status = 'offered' AND (title LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`
-    : `SELECT id FROM products WHERE status = 'offered' ORDER BY updated_at DESC LIMIT 50`
+    ? `SELECT id FROM products WHERE status IN ('offered', 'sold') AND (title LIKE ? OR description LIKE ?) ORDER BY updated_at DESC LIMIT 50`
+    : `SELECT id FROM products WHERE status IN ('offered', 'sold') ORDER BY updated_at DESC LIMIT 50`
   const rows = needle
     ? await db.prepare(query).bind(`%${needle}%`, `%${needle}%`).all<{ id: string }>()
     : await db.prepare(query).all<{ id: string }>()
@@ -162,7 +186,10 @@ export async function listPublicProducts(
   for (const row of rows.results) {
     try {
       const product = await getPublicProduct(db, row.id, network)
-      if (product.signatureState === 'verified' && product.state === 'available') items.push(product)
+      if (
+        product.signatureState === 'verified'
+        && ['available', 'checked_out', 'owned'].includes(product.state)
+      ) items.push(product)
     } catch {
       // Ignore a malformed listing; the public catalogue must never expose unverified records.
     }
