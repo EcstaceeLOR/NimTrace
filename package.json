@@ -12,6 +12,7 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "db:migrate:local": "npm run db:migrate:local --workspace @nimtrace/api",
     "db:migrate:preview": "npm run db:migrate:preview --workspace @nimtrace/api",
+    "deploy:api": "npm run deploy --workspace @nimtrace/api",
     "dev:api": "npm run dev --workspace @nimtrace/api",
     "dev:web": "npm run dev --workspace @nimtrace/web",
     "lint": "eslint . --max-warnings 0",
