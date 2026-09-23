@@ -6,6 +6,7 @@ import { installProductImagePickerCompatibility } from './lib/images/productPick
 import { installQrBarcodeDetectorFallback } from './lib/qr/barcodeDetectorFallback'
 import './styles.css'
 import './product-images.css'
+import './catalogue-lifecycle.css'
 import './mobile.css'
 import './mobile-polish.css'
 

@@ -70,7 +70,7 @@ const passport = {
 }
 
 test('public product remains usable when its image cannot load', async ({ page }) => {
-  await page.route(`**/api/products/${productId}`, (route) => route.fulfill({ json: product }))
+  await page.route((url) => url.pathname === `/api/products/${productId}`, (route) => route.fulfill({ json: product }))
   await page.route('**/api/product-images?key=missing-e2e-image', (route) => route.fulfill({ status: 404, json: { error: 'image_not_found' } }))
 
   await page.goto(`/products/${productId}`)

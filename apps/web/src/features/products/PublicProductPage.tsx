@@ -22,7 +22,8 @@ type PageState =
 
 const stateCopy: Record<PublicProductState, { label: string; message: string }> = {
   available: { label: 'Available', message: 'This signed product is available to purchase directly from its issuer.' },
-  owned: { label: 'Owned', message: 'This product has already been purchased. Its passport records the current owner.' },
+  checked_out: { label: 'Checked out', message: 'Another buyer has an active checkout for this product. Buying is disabled until that checkout completes, expires, or safely fails.' },
+  owned: { label: 'Completed', message: 'This purchase has completed and its product passport records the current owner.' },
   replaced: { label: 'Replaced version', message: 'You are viewing an older or retired product statement. Check the latest signed version.' },
   suspended: { label: 'Suspended', message: 'The issuer or NimTrace suspended this listing. Do not purchase it.' },
   invalid: { label: 'Invalid proof', message: 'The stored product proof could not be verified. Do not rely on this listing.' },
@@ -36,7 +37,11 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetch(`/api/products/${encodeURIComponent(productId)}`, { signal: controller.signal })
+    const params = new URLSearchParams({ live: String(Date.now()) })
+    fetch(`/api/products/${encodeURIComponent(productId)}?${params.toString()}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error(response.status === 404 ? 'Product not found.' : 'Product verification is unavailable.')
         return PublicProductResponseSchema.parse(await response.json())
@@ -74,6 +79,11 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
   const { product } = state
   const status = stateCopy[product.state]
   const purchasable = product.state === 'available' && product.signatureState === 'verified'
+  const unavailableLabel = product.state === 'checked_out'
+    ? 'Checkout already in progress'
+    : product.state === 'owned'
+      ? 'Purchase completed'
+      : 'Purchase unavailable'
 
   return (
     <main className="public-product-shell">
@@ -103,7 +113,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
 
           {purchasable ? <ProductCheckout product={product} publicUrl={publicUrl} /> : (
             <div className="product-actions">
-              <button className="button button--primary" type="button" disabled>Purchase unavailable</button>
+              <button className="button button--primary" type="button" disabled>{unavailableLabel}</button>
               <a className="button button--secondary" href={deepLink}>Open in Nimiq Pay</a>
             </div>
           )}

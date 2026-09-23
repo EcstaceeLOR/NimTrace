@@ -85,7 +85,7 @@ export async function createInitialPurchaseIntent(
   }
 
   const product = await getPublicProduct(db, productId, network)
-  if (product.state !== 'available' || product.signatureState !== 'verified') {
+  if (!['available', 'checked_out'].includes(product.state) || product.signatureState !== 'verified') {
     return fail('product_unavailable', 'This product is not available for purchase.', 409)
   }
   if (product.issuerAddress === buyerAddress) {
@@ -98,6 +98,12 @@ export async function createInitialPurchaseIntent(
       return { created: false, intent: active }
     }
     return fail('product_checkout_busy', 'Another checkout is already active for this product.', 409)
+  }
+
+  // `checked_out` is derived from the active-intent projection. If that projection
+  // and this read ever race, fail closed instead of creating a checkout from stale state.
+  if (product.state !== 'available') {
+    return fail('product_unavailable', 'This product is not available for purchase.', 409)
   }
 
   const id = randomToken(18)

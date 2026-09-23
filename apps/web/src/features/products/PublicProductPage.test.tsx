@@ -43,6 +43,37 @@ describe('PublicProductPage', () => {
     expect(screen.getByRole('link', { name: 'Buy with NIM' }))
       .toHaveAttribute('href', expect.stringMatching(/^nimiqpay:\/\/miniapp\?url=/))
     expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^/api/products/${product.id}\\?live=\\d+$`)),
+      expect.objectContaining({ cache: 'no-store' }),
+    )
+  })
+
+  it('blocks a checked-out product before another buyer can enter checkout', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ...product,
+      state: 'checked_out',
+    }))))
+
+    render(<PublicProductPage productId={product.id} />)
+
+    expect(await screen.findByText('Checked out')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Checkout already in progress' })).toBeDisabled()
+    expect(screen.getByText(/another buyer has an active checkout/i)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
+  })
+
+  it('labels a sold product as completed and keeps buying disabled', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ...product,
+      state: 'owned',
+    }))))
+
+    render(<PublicProductPage productId={product.id} />)
+
+    expect(await screen.findByText('Completed')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Purchase completed' })).toBeDisabled()
+    expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
   })
 
   it.each(['suspended', 'replaced', 'invalid'] as const)('blocks purchases for an honest %s state', async (state) => {

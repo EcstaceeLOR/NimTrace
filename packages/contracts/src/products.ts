@@ -51,6 +51,7 @@ export const PublishedProductResponseSchema = z.object({
 
 export const PublicProductStateSchema = z.enum([
   'available',
+  'checked_out',
   'owned',
   'replaced',
   'suspended',
