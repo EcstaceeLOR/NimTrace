@@ -41,6 +41,7 @@ export function MiniAppTabs() {
       <button
         className="miniapp-create-button"
         type="button"
+        aria-label="Create and manage"
         aria-expanded={showActions}
         aria-controls="miniapp-quick-actions"
         onClick={() => setShowActions((open) => !open)}
