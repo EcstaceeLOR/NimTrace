@@ -29,7 +29,7 @@ export function MiniAppTabs() {
         />
       )}
       {showActions && (
-        <section className="miniapp-actions-sheet" aria-label="Create and manage">
+        <section id="miniapp-quick-actions" className="miniapp-actions-sheet" aria-label="Create and manage">
           <div>
             <p className="eyebrow">QUICK ACTIONS</p>
             <strong>Create & manage</strong>
