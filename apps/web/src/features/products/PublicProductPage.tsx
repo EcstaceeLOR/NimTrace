@@ -5,6 +5,7 @@ import {
   type PublicProductResponse,
   type PublicProductState,
 } from '@nimtrace/contracts'
+import { ProductImage } from '../../components/ProductImage'
 import { formatNimFromLuna } from '../../lib/formatting/nim'
 import { createNimiqPayDeepLink } from '../../lib/nimiq/deepLink'
 import { ProductCheckout } from './ProductCheckout'
@@ -84,7 +85,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
       </nav>
 
       <section className="public-product-grid">
-        <div className="public-product-image"><img src={product.imageUrl} alt={product.title} decoding="async" fetchPriority="high" /></div>
+        <ProductImage src={product.imageUrl} alt={`${product.title} product`} className="public-product-image" loading="eager" fetchPriority="high" />
         <article className="public-product-card">
           <p className={`product-state product-state--${product.state}`}>{status.label}</p>
           <h1>{product.title}</h1>

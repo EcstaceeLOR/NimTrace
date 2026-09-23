@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import './styles.css'
+import './product-images.css'
 
 const root = document.querySelector<HTMLDivElement>('#root')
 

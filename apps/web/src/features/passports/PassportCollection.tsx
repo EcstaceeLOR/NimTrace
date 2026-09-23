@@ -10,6 +10,7 @@ import {
   type PassportDetail,
   type PassportSummary,
 } from '@nimtrace/contracts'
+import { ProductImage } from '../../components/ProductImage'
 import { nimiqPayWallet } from '../../lib/nimiq/wallet'
 
 interface PassportCollectionProps {
@@ -59,7 +60,7 @@ function PassportCard({ passport, onOpen }: { passport: PassportSummary; onOpen:
   return (
     <article className={`owned-passport-card owned-passport-card--${passport.status}${passport.recentlyIssued ? ' owned-passport-card--arriving' : ''}`}>
       {passport.recentlyIssued && <span className="passport-arrival">Added to your wallet</span>}
-      <img src={passport.imageUrl} alt="" loading="lazy" decoding="async" />
+      <ProductImage src={passport.imageUrl} alt={`${passport.productTitle} product`} className="owned-passport-card__image" />
       <div className="owned-passport-card__body">
         <div className="owned-passport-card__meta">
           <span className={`passport-trust passport-trust--${passport.auditState}`}>
