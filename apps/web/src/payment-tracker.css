@@ -1,0 +1,104 @@
+.payment-progress {
+  margin: 1.25rem 0;
+}
+
+.payment-progress__list {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.payment-progress__step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  min-height: 4rem;
+  position: relative;
+}
+
+.payment-progress__step:not(:last-child)::after {
+  background: rgba(169, 181, 196, 0.25);
+  content: '';
+  left: 0.875rem;
+  position: absolute;
+  top: 1.8rem;
+  bottom: 0.1rem;
+  width: 2px;
+}
+
+.payment-progress__step--complete:not(:last-child)::after {
+  background: rgba(57, 224, 195, 0.7);
+}
+
+.payment-progress__marker {
+  align-items: center;
+  border: 1px solid rgba(169, 181, 196, 0.4);
+  border-radius: 0.55rem;
+  display: flex;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 1.75rem;
+  justify-content: center;
+  line-height: 1;
+  position: relative;
+  width: 1.75rem;
+  z-index: 1;
+}
+
+.payment-progress__step--complete .payment-progress__marker {
+  background: rgb(57, 224, 195);
+  border-color: rgb(57, 224, 195);
+  color: rgb(5, 22, 27);
+}
+
+.payment-progress__step--current .payment-progress__marker {
+  border-color: rgb(57, 224, 195);
+  box-shadow: 0 0 0 3px rgba(57, 224, 195, 0.12);
+  color: rgb(57, 224, 195);
+}
+
+.payment-progress__copy {
+  display: grid;
+  gap: 0.28rem;
+  padding-bottom: 1rem;
+}
+
+.payment-progress__copy strong {
+  color: inherit;
+  font-size: 0.98rem;
+}
+
+.payment-progress__copy > span {
+  color: #a9b5c4;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.payment-progress__step--pending .payment-progress__copy {
+  opacity: 0.58;
+}
+
+.payment-progress__bar {
+  background: rgba(169, 181, 196, 0.18);
+  border-radius: 999px;
+  height: 0.4rem;
+  margin-top: 0.35rem;
+  overflow: hidden;
+  width: min(100%, 22rem);
+}
+
+.payment-progress__bar > span {
+  background: rgb(57, 224, 195);
+  display: block;
+  height: 100%;
+  min-width: 0.2rem;
+  transition: width 250ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payment-progress__bar > span {
+    transition: none;
+  }
+}
