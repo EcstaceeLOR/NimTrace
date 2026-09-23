@@ -1,0 +1,69 @@
+.product-image-frame {
+  position: relative;
+  overflow: hidden;
+  background: #101626;
+}
+
+.product-image-frame > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-image-loading {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(255,255,255,0.035) 8%, rgba(255,255,255,0.09) 18%, rgba(255,255,255,0.035) 33%);
+  background-size: 200% 100%;
+  animation: product-image-shimmer 1.25s linear infinite;
+  pointer-events: none;
+}
+
+.product-image-fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  place-content: center;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  color: var(--muted);
+  background: linear-gradient(145deg, rgba(24, 29, 39, 0.96), rgba(12, 15, 21, 0.97));
+  text-align: center;
+}
+
+.product-image-fallback > span {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 0.8rem;
+  color: #07110f;
+  background: var(--accent);
+  font-weight: 900;
+}
+
+.product-image-fallback small {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.catalogue-card__image {
+  width: 100%;
+  aspect-ratio: 1.45;
+}
+
+.owned-passport-card__image {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+}
+
+.public-product-image.product-image-frame {
+  aspect-ratio: 1;
+}
+
+@keyframes product-image-shimmer {
+  to { background-position-x: -200%; }
+}
