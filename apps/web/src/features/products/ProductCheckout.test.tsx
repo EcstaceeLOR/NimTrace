@@ -166,16 +166,30 @@ describe('ProductCheckout', () => {
 
   it('automatically advances the staged finality tracker into the issued ownership proof', async () => {
     const checkoutWallet = wallet()
+    let verificationCalls = 0
     let releaseVerified!: (response: Response) => void
     const verifiedResponse = new Promise<Response>((resolve) => {
       releaseVerified = resolve
     })
-    const fetcher = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(intent), { status: 201 }))
-      .mockResolvedValueOnce(submission())
-      .mockResolvedValueOnce(finalityVerification(24))
-      .mockImplementationOnce(() => verifiedResponse)
-      .mockResolvedValueOnce(issuedPassport())
+
+    const fetcher = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === `/api/products/${product.id}/purchase-intents`) {
+        return Promise.resolve(new Response(JSON.stringify(intent), { status: 201 }))
+      }
+      if (url === `/api/payment-intents/${intent.id}/submissions`) {
+        return Promise.resolve(submission())
+      }
+      if (url === `/api/payment-intents/${intent.id}/verification`) {
+        verificationCalls += 1
+        if (verificationCalls === 1) return Promise.resolve(finalityVerification(24))
+        return verifiedResponse
+      }
+      if (url === `/api/payment-intents/${intent.id}/completion` && init?.method === 'POST') {
+        return Promise.resolve(issuedPassport())
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
 
     render(<ProductCheckout
       authenticate={vi.fn().mockResolvedValue(authentication)}
@@ -201,10 +215,10 @@ describe('ProductCheckout', () => {
     expect(screen.getAllByLabelText('Complete')).toHaveLength(5)
     expect(screen.getByRole('link', { name: 'Open ownership proof' })).toHaveAttribute('href', `/passports/${passportId}`)
     expect(checkoutWallet.pay).toHaveBeenCalledTimes(1)
-    expect(fetcher).toHaveBeenNthCalledWith(4, `/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
+    expect(fetcher).toHaveBeenCalledWith(`/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
       headers: { Authorization: `Bearer ${authentication.session.sessionToken}` },
     }))
-    expect(fetcher).toHaveBeenNthCalledWith(5, `/api/payment-intents/${intent.id}/completion`, expect.objectContaining({
+    expect(fetcher).toHaveBeenCalledWith(`/api/payment-intents/${intent.id}/completion`, expect.objectContaining({
       method: 'POST',
     }))
   })
