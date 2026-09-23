@@ -68,7 +68,7 @@ function restoreTransfer(storage: TransferStorage | undefined, intentId: string)
 
 export function TransferAcceptance({ fetcher = fetch, intentId, storage = browserStorage() }: TransferAcceptanceProps) {
   const restored = restoreTransfer(storage, intentId)
-  const [intent, setIntent] = useState<TransferIntentResponse>(restored?.intent)
+  const [intent, setIntent] = useState<TransferIntentResponse | undefined>(restored?.intent)
   const [passport, setPassport] = useState<PublicPassportVerification>()
   const [session, setSession] = useState<{ sessionToken: string; walletAddress: string }>()
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'signing' | 'recovering' | 'done' | 'error'>(restored ? 'recovering' : 'idle')
