@@ -11,7 +11,7 @@ export class ProductImageError extends Error {
   constructor(
     readonly code: string,
     message: string,
-    readonly status: 400 | 413 | 415,
+    readonly status: 400 | 413 | 415 | 503,
   ) {
     super(message)
   }
@@ -153,6 +153,13 @@ export async function storeProductImage(
   if (body.byteLength === 0 || body.byteLength > MAX_IMAGE_BYTES) {
     throw new ProductImageError('image_too_large', 'Processed images must be smaller than 1.5 MB.', 413)
   }
+  if (!bucket) {
+    throw new ProductImageError(
+      'image_storage_unavailable',
+      'Product image storage is temporarily unavailable. Please retry in a moment.',
+      503,
+    )
+  }
 
   const bytes = new Uint8Array(body)
   const dimensions = contentType === 'image/webp' ? inspectWebP(bytes) : inspectJpeg(bytes)
@@ -161,7 +168,6 @@ export async function storeProductImage(
   const imageKey = `products/${walletPath}/${randomToken(18)}/${imageHash}.${extension}`
 
   try {
-    if (!bucket) throw new Error('R2 binding is unavailable')
     await bucket.put(imageKey, body, {
       httpMetadata: { contentType, cacheControl: 'public, max-age=31536000, immutable' },
       customMetadata: {
@@ -171,25 +177,22 @@ export async function storeProductImage(
         width: String(dimensions.width),
       },
     })
-    return {
-      bytes: body.byteLength,
-      fallback: false,
-      height: dimensions.height,
-      imageHash,
-      imageKey,
-      url: `/api/product-images?key=${encodeURIComponent(imageKey)}`,
-      width: dimensions.width,
-    }
   } catch {
-    return {
-      bytes: 0,
-      fallback: true,
-      height: 800,
-      imageHash: DEMO_IMAGE_HASH,
-      imageKey: DEMO_IMAGE_KEY,
-      url: '/demo-product.svg',
-      width: 800,
-    }
+    throw new ProductImageError(
+      'image_storage_unavailable',
+      'Product image storage is temporarily unavailable. Your photo was not published; please retry.',
+      503,
+    )
+  }
+
+  return {
+    bytes: body.byteLength,
+    fallback: false,
+    height: dimensions.height,
+    imageHash,
+    imageKey,
+    url: `/api/product-images?key=${encodeURIComponent(imageKey)}`,
+    width: dimensions.width,
   }
 }
 
