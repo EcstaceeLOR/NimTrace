@@ -48,9 +48,12 @@ interface ProductCheckoutProps {
   fetcher?: typeof fetch
   product: PublicProductResponse
   publicUrl: string
+  reconcileIntervalMs?: number
   storage?: Pick<Storage, 'getItem' | 'removeItem' | 'setItem'>
   wallet?: CheckoutWallet
 }
+
+const DEFAULT_RECONCILE_INTERVAL_MS = 5_000
 
 function storageKey(productId: string) {
   return `nimtrace:checkout:${productId}`
@@ -111,12 +114,12 @@ function initialCheckoutState(
 
 function pendingMessage(verification: PaymentVerificationResponse) {
   if (verification.state === 'inconclusive') {
-    return 'The network provider is temporarily unavailable. Your existing payment remains protected; do not pay again.'
+    return 'The network provider is temporarily unavailable. NimTrace will keep checking automatically; your existing payment remains protected and you should not pay again.'
   }
   if (verification.reason === 'awaiting_finality') {
-    return `The payment is included with ${verification.confirmations ?? 0} of ${verification.finalityConfirmations} required confirmations.`
+    return `Payment confirming: ${verification.confirmations ?? 0} / ${verification.finalityConfirmations} confirmations. NimTrace checks automatically; finality normally completes about a minute after inclusion.`
   }
-  return 'NimTrace is still looking for the existing payment. Do not pay again while its unique tag is reconciled.'
+  return 'NimTrace is still looking for the existing payment. It checks automatically every few seconds; do not pay again while its unique tag is reconciled.'
 }
 
 export function ProductCheckout({
@@ -124,11 +127,13 @@ export function ProductCheckout({
   fetcher = fetch,
   product,
   publicUrl,
+  reconcileIntervalMs = DEFAULT_RECONCILE_INTERVAL_MS,
   storage = browserStorage(),
   wallet = nimiqPayWallet,
 }: ProductCheckoutProps) {
   const [state, setState] = useState<CheckoutState>(() => initialCheckoutState(storage, product.id))
   const inFlight = useRef(false)
+  const sessionTokenRef = useRef<string | null>(null)
   const deepLink = wallet.deepLink(publicUrl)
 
   const persist = useCallback((record: PersistedCheckout) => {
@@ -155,6 +160,7 @@ export function ProductCheckout({
 
     if (verification.state === 'rejected') {
       clearPersisted()
+      sessionTokenRef.current = null
       if (verification.reason === 'intent_inactive' && !transactionHash) {
         setState({ status: 'error', message: 'The previous unpaid checkout expired. You can prepare a fresh checkout.' })
         return
@@ -196,6 +202,7 @@ export function ProductCheckout({
       }
       const passport = IssuedPassportResponseSchema.parse(await completionResponse.json())
       clearPersisted()
+      sessionTokenRef.current = null
       setState({
         status: 'confirmed',
         intent: record.intent,
@@ -222,6 +229,7 @@ export function ProductCheckout({
         setState({ status: 'error', message: authentication.error.message })
         return
       }
+      sessionTokenRef.current = authentication.session.sessionToken
 
       const response = await fetcher(`/api/products/${encodeURIComponent(product.id)}/purchase-intents`, {
         method: 'POST',
@@ -248,8 +256,8 @@ export function ProductCheckout({
           status: 'uncertain',
           record,
           message: intent.status === 'confirmed'
-            ? 'This payment is already confirmed. Reconnect the buyer wallet to open the issued ownership proof.'
-            : 'An earlier payment attempt must be reconciled before another payment.',
+            ? 'This payment is already confirmed. NimTrace will reconcile it automatically and open the issued ownership proof.'
+            : 'An earlier payment attempt must be reconciled before another payment. NimTrace will keep checking it automatically.',
         })
         return
       }
@@ -262,6 +270,7 @@ export function ProductCheckout({
   }
 
   async function submitCaptured(active: CheckoutSession, transactionHash: string) {
+    sessionTokenRef.current = active.sessionToken
     setState({ status: 'submitting', active, transactionHash })
     try {
       const response = await fetcher(`/api/payment-intents/${encodeURIComponent(active.intent.id)}/submissions`, {
@@ -290,13 +299,13 @@ export function ProductCheckout({
       persist(record)
       setState({
         status: 'submitted',
-        message: 'NimTrace has the transaction hash and is checking independent network finality.',
+        message: 'NimTrace has the transaction hash and is checking independent network finality automatically.',
         record,
       })
       try {
         await requestVerification(record, active.sessionToken)
       } catch {
-        // The scheduled reconciler and explicit status check use the same
+        // Automatic reconciliation and the explicit status button use the same
         // settlement path, so a provider outage never asks the buyer to repay.
       }
     } catch {
@@ -317,6 +326,7 @@ export function ProductCheckout({
       return
     }
     inFlight.current = true
+    sessionTokenRef.current = active.sessionToken
     setState({ status: 'paying', active })
     try {
       const consensus = await wallet.checkConsensus()
@@ -346,7 +356,7 @@ export function ProductCheckout({
           setState({
             status: 'uncertain',
             record: { intent: active.intent, stage: 'awaiting_wallet' },
-            message: `${payment.error.message} Do not pay again while the transaction tag is reconciled.`,
+            message: `${payment.error.message} NimTrace will keep checking automatically. Do not pay again while the transaction tag is reconciled.`,
           })
         } else {
           clearPersisted()
@@ -379,6 +389,7 @@ export function ProductCheckout({
         setState({ status: 'resumable', message: 'Reconnect the buyer wallet that started this payment.', record })
         return
       }
+      sessionTokenRef.current = authentication.session.sessionToken
 
       let current = record
       if (record.stage === 'hash_captured' && record.transactionHash) {
@@ -413,6 +424,22 @@ export function ProductCheckout({
     const timeout = window.setTimeout(() => void reconcileExisting(restored), 0)
     return () => window.clearTimeout(timeout)
   }, [product.id, reconcileExisting, storage])
+
+  useEffect(() => {
+    if (state.status !== 'submitted' && state.status !== 'uncertain') return
+    const record = state.record
+    const interval = window.setInterval(() => {
+      const sessionToken = sessionTokenRef.current
+      if (!sessionToken || inFlight.current) return
+      inFlight.current = true
+      void requestVerification(record, sessionToken)
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight.current = false
+        })
+    }, reconcileIntervalMs)
+    return () => window.clearInterval(interval)
+  }, [reconcileIntervalMs, requestVerification, state])
 
   if (!wallet.isAvailable()) {
     return <div className="product-actions"><a className="button button--primary" href={deepLink}>Buy with NIM</a></div>
@@ -485,6 +512,7 @@ export function ProductCheckout({
         <section className="checkout-status checkout-status--submitted" role="status">
           <strong>Payment submitted</strong>
           <p>{state.message} This is not yet a completed purchase.</p>
+          <p>NimTrace keeps checking automatically while this page is open. You can also check immediately below.</p>
           <code>{state.record.transactionHash}</code>
           <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
         </section>
@@ -506,6 +534,7 @@ export function ProductCheckout({
         <section className="checkout-status checkout-status--delayed" role="alert">
           <strong>Payment result delayed</strong>
           <p>{state.message}</p>
+          <p>NimTrace keeps checking automatically while this page is open. Do not start another payment.</p>
           <code>{state.record.intent.transactionData}</code>
           <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
         </section>
