@@ -196,7 +196,7 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
                 ref={cameraInput}
                 name="cameraImage"
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept="image/*"
                 capture="environment"
                 onChange={selectImage}
               />
@@ -207,11 +207,11 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
                 ref={uploadInput}
                 name="uploadImage"
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept="*/*"
                 onChange={selectImage}
               />
             </label>
-            <small className="issuer-help">JPEG, PNG, and WebP are supported across the target Nimiq Pay WebViews. HEIC/HEIF should be exported as JPEG first.</small>
+            <small className="issuer-help">On Android, Upload from device opens the system Files/Documents chooser so you can reach Gallery or Photos without being forced into the camera. NimTrace still accepts only JPEG, PNG, and WebP images; HEIC/HEIF should be exported as JPEG first.</small>
           </fieldset>
           {previewUrl && (
             <div className="issuer-image-preview">

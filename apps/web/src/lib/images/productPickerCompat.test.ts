@@ -6,7 +6,7 @@ describe('product image picker compatibility', () => {
     document.body.innerHTML = ''
   })
 
-  it('keeps camera capture explicit and device upload gallery-capable', () => {
+  it('keeps camera capture explicit and routes device upload through documents', () => {
     document.body.innerHTML = `
       <input type="file" name="cameraImage" accept="image/png,image/jpeg,image/webp">
       <input type="file" name="uploadImage" accept="image/png,image/jpeg,image/webp" capture="environment">
@@ -19,7 +19,7 @@ describe('product image picker compatibility', () => {
 
     expect(camera.accept).toBe('image/*')
     expect(camera.getAttribute('capture')).toBe('environment')
-    expect(upload.accept).toBe('image/*')
+    expect(upload.accept).toBe('*/*')
     expect(upload.hasAttribute('capture')).toBe(false)
   })
 
@@ -35,7 +35,7 @@ describe('product image picker compatibility', () => {
 
     await new Promise<void>((resolve) => queueMicrotask(() => resolve()))
 
-    expect(upload.accept).toBe('image/*')
+    expect(upload.accept).toBe('*/*')
     expect(upload.hasAttribute('capture')).toBe(false)
     uninstall()
   })
