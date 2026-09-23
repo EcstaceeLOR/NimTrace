@@ -21,8 +21,8 @@ type PageState =
   | { status: 'error'; message: string }
 
 const stateCopy: Record<PublicProductState, { label: string; message: string }> = {
-  available: { label: 'Available', message: 'This signed product is available to purchase directly from its issuer.' },
-  checked_out: { label: 'Checked out', message: 'Another buyer has an active checkout for this product. Buying is disabled until that checkout completes, expires, or safely fails.' },
+  available: { label: 'Available', message: 'This signed product has no active checkout and is available to purchase directly from its issuer.' },
+  checked_out: { label: 'Checkout in progress', message: 'Another buyer currently has an active checkout for this product. Buying is disabled until that checkout completes, expires, or safely fails.' },
   owned: { label: 'Completed', message: 'This purchase has completed and its product passport records the current owner.' },
   replaced: { label: 'Replaced version', message: 'You are viewing an older or retired product statement. Check the latest signed version.' },
   suspended: { label: 'Suspended', message: 'The issuer or NimTrace suspended this listing. Do not purchase it.' },
@@ -80,7 +80,7 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
   const status = stateCopy[product.state]
   const purchasable = product.state === 'available' && product.signatureState === 'verified'
   const unavailableLabel = product.state === 'checked_out'
-    ? 'Checkout already in progress'
+    ? 'Checkout in progress'
     : product.state === 'owned'
       ? 'Purchase completed'
       : 'Purchase unavailable'
