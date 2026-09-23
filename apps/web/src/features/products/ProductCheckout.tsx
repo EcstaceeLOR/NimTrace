@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  IssuedPassportResponseSchema,
   PaymentSubmissionResponseSchema,
   PaymentVerificationResponseSchema,
   PurchaseIntentResponseSchema,
@@ -37,7 +38,7 @@ type CheckoutState =
   | { status: 'reconciling'; record: PersistedCheckout }
   | { status: 'resumable'; message?: string; record: PersistedCheckout }
   | { status: 'submitted'; message: string; record: PersistedCheckout }
-  | { status: 'confirmed'; intent: PurchaseIntentResponse; transactionHash: string }
+  | { status: 'confirmed'; intent: PurchaseIntentResponse; passportId: string; transactionHash: string }
   | { status: 'uncertain'; message: string; record: PersistedCheckout }
   | { status: 'blocked'; message: string }
   | { status: 'error'; message: string }
@@ -151,11 +152,6 @@ export function ProductCheckout({
     verification: PaymentVerificationResponse,
   ) => {
     const transactionHash = verification.transactionHash ?? record.transactionHash
-    if (verification.state === 'verified' && transactionHash) {
-      clearPersisted()
-      setState({ status: 'confirmed', intent: record.intent, transactionHash })
-      return
-    }
 
     if (verification.state === 'rejected') {
       clearPersisted()
@@ -187,8 +183,30 @@ export function ProductCheckout({
       headers: { Authorization: `Bearer ${sessionToken}` },
     })
     if (!response.ok) throw new Error(await responseMessage(response, 'Payment status could not be checked.'))
-    applyVerification(record, PaymentVerificationResponseSchema.parse(await response.json()))
-  }, [applyVerification, fetcher])
+    const verification = PaymentVerificationResponseSchema.parse(await response.json())
+    const transactionHash = verification.transactionHash ?? record.transactionHash
+
+    if (verification.state === 'verified' && transactionHash) {
+      const completionResponse = await fetcher(`/api/payment-intents/${encodeURIComponent(record.intent.id)}/completion`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      })
+      if (!completionResponse.ok) {
+        throw new Error(await responseMessage(completionResponse, 'Payment is verified, but the ownership passport is still being finalized.'))
+      }
+      const passport = IssuedPassportResponseSchema.parse(await completionResponse.json())
+      clearPersisted()
+      setState({
+        status: 'confirmed',
+        intent: record.intent,
+        passportId: passport.id,
+        transactionHash,
+      })
+      return
+    }
+
+    applyVerification(record, verification)
+  }, [applyVerification, clearPersisted, fetcher])
 
   async function prepareCheckout() {
     if (inFlight.current) return
@@ -230,7 +248,7 @@ export function ProductCheckout({
           status: 'uncertain',
           record,
           message: intent.status === 'confirmed'
-            ? 'This payment is already confirmed. Passport settlement is continuing.'
+            ? 'This payment is already confirmed. Reconnect the buyer wallet to open the issued ownership proof.'
             : 'An earlier payment attempt must be reconciled before another payment.',
         })
         return
@@ -474,9 +492,13 @@ export function ProductCheckout({
 
       {state.status === 'confirmed' && (
         <section className="checkout-status checkout-status--submitted" role="status">
-          <strong>Payment confirmed</strong>
-          <p>Independent network verification is final. Passport settlement can now continue.</p>
+          <strong>Payment confirmed — ownership proof ready</strong>
+          <p>Independent network verification is final. Your wallet-owned product passport has been issued and is ready to inspect.</p>
           <code>{state.transactionHash}</code>
+          <div className="product-actions">
+            <a className="button button--primary" href={`/passports/${encodeURIComponent(state.passportId)}`}>Open ownership proof</a>
+            <a className="button button--secondary" href="/wallet">View in my passports</a>
+          </div>
         </section>
       )}
 
