@@ -39,6 +39,11 @@ jobs:
       - name: Test API
         run: npm run test:unit --workspace @nimtrace/api
 
+      - name: Build Worker assets
+        run: |
+          npm run build --workspace @nimtrace/contracts
+          npm run build --workspace @nimtrace/web
+
       - name: Require Cloudflare deployment credentials
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
