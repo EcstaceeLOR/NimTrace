@@ -33,7 +33,7 @@ describe('product image picker compatibility', () => {
     upload.setAttribute('capture', 'environment')
     document.body.append(upload)
 
-    await new Promise((resolve) => queueMicrotask(resolve))
+    await new Promise<void>((resolve) => queueMicrotask(() => resolve()))
 
     expect(upload.accept).toBe('image/*')
     expect(upload.hasAttribute('capture')).toBe(false)
