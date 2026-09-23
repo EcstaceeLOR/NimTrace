@@ -16,9 +16,9 @@ describe('MiniAppTabs', () => {
   it('keeps issuer and merchant destinations available through quick actions', () => {
     render(<MiniAppTabs />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create and manage' }))
     expect(screen.getByRole('link', { name: 'Issue a product' })).toHaveAttribute('href', '/issue')
     expect(screen.getByRole('link', { name: 'Merchant Studio' })).toHaveAttribute('href', '/merchant')
-    expect(screen.getByRole('button', { name: 'Create' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Create and manage' })).toHaveAttribute('aria-expanded', 'true')
   })
 })
