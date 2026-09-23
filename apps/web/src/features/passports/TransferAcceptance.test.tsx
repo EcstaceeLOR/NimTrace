@@ -14,7 +14,11 @@ const hash = (character: string) => character.repeat(64)
 vi.mock('../../lib/nimiq/auth', () => ({
   authenticateWallet: vi.fn().mockResolvedValue({
     status: 'success',
-    session: { sessionToken: 'secret-session-token', walletAddress: recipient },
+    session: {
+      sessionToken: 'secret-session-token',
+      walletAddress: 'NQ22 BUYE 0000 0000 0000 0000 0000 0000 0000',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    },
   }),
 }))
 
