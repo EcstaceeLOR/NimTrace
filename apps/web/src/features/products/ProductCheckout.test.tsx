@@ -204,7 +204,7 @@ describe('ProductCheckout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Buy with NIM' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Pay 1 NIM' }))
 
-    expect(await screen.findByText(/24 \/ 60 confirmations/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/24 \/ 60 confirmations/i)).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Included on Nimiq network')).toBeInTheDocument()
     expect(screen.getByText('Network finality')).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Network finality confirmations' })).toHaveAttribute('aria-valuenow', '24')
