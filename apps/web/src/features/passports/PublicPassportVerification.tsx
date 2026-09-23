@@ -6,6 +6,7 @@ import {
 } from '@nimtrace/contracts'
 import { MiniAppTabs } from '../../components/MiniAppTabs'
 import { ProductImage } from '../../components/ProductImage'
+import { safePublicPassportQrUrl } from '../../lib/qr/publicPassportUrl'
 
 interface PublicPassportVerificationProps {
   fetcher?: typeof fetch
@@ -44,14 +45,6 @@ function shortHash(value: string) {
   return `${value.slice(0, 12)}…${value.slice(-8)}`
 }
 
-function safeQrUrl(value: string) {
-  const url = new URL(value)
-  if (url.username || url.password || url.search || url.hash || !/^\/passports\/[^/]+\/?$/.test(url.pathname)) {
-    throw new Error('Unsafe public passport URL')
-  }
-  return url.toString()
-}
-
 function EvidenceState({ state }: { state: 'verified' | 'partial' | 'unverified' | 'claim' }) {
   const label = state === 'verified' ? 'Verified' : state === 'partial' ? 'Check delayed' : state === 'claim' ? 'Claim' : 'Invalid'
   return <span className={`verification-evidence verification-evidence--${state}`}>{label}</span>
@@ -72,7 +65,7 @@ export function PublicPassportVerification({
       if (!response.ok) throw new Error('Passport unavailable')
       const passport = PublicPassportVerificationSchema.parse(await response.json())
       setState({ status: 'ready', passport })
-      return QRCode.toDataURL(safeQrUrl(passport.publicUrl), {
+      return QRCode.toDataURL(safePublicPassportQrUrl(passport.publicUrl), {
         color: { dark: '#090b10', light: '#ffffff' },
         errorCorrectionLevel: 'H',
         margin: 4,
