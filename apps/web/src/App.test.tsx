@@ -13,6 +13,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 'ok',
       service: 'nimtrace-api',
+      network: 'main-albatross',
       version: '0.1.0',
       environment: 'test',
       timestamp: new Date().toISOString(),
@@ -21,13 +22,14 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: /every product deserves proof that lasts/i })).toBeInTheDocument()
-    expect(await screen.findByText('Network ready')).toBeInTheDocument()
+    expect(await screen.findByText('Mainnet ready')).toBeInTheDocument()
   })
 
   it('keeps the public page usable and offers a Nimiq Pay handoff outside the host', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 'ok',
       service: 'nimtrace-api',
+      network: 'main-albatross',
       version: '0.1.0',
       environment: 'test',
       timestamp: new Date().toISOString(),

@@ -31,7 +31,7 @@ function readChallenge(): RepairChallenge | undefined {
 }
 
 export function RepairAcceptance({ repairId }: { repairId: string }) {
-  const challenge = useMemo(readChallenge, [])
+  const challenge = useMemo(() => readChallenge(), [])
   const validChallenge = challenge?.repairId === repairId ? challenge : undefined
   const [state, setState] = useState<'ready' | 'signing' | 'submitted' | 'error'>(validChallenge ? 'ready' : 'error')
   const [message, setMessage] = useState(validChallenge ? '' : 'This repair invitation is missing or malformed.')

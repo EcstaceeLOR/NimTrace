@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint, typecheck, test, and build
+    name: Lint, typecheck, test, build, and E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -45,3 +45,9 @@ jobs:
 
       - name: Production builds
         run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Judge-critical E2E tests
+        run: npm run test:e2e
