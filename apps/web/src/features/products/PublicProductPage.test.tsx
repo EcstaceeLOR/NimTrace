@@ -61,6 +61,7 @@ describe('PublicProductPage', () => {
     expect(screen.getByRole('button', { name: 'Checkout in progress' })).toBeDisabled()
     expect(screen.getByText(/another buyer currently has an active checkout/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open in Nimiq Pay' })).not.toBeInTheDocument()
   })
 
   it('labels a sold product as completed and keeps buying disabled', async () => {
@@ -74,6 +75,7 @@ describe('PublicProductPage', () => {
     expect(await screen.findByText('Completed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Purchase completed' })).toBeDisabled()
     expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open in Nimiq Pay' })).not.toBeInTheDocument()
   })
 
   it.each(['suspended', 'replaced', 'invalid'] as const)('blocks purchases for an honest %s state', async (state) => {
@@ -87,5 +89,6 @@ describe('PublicProductPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Purchase unavailable' })).toBeDisabled()
     expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open in Nimiq Pay' })).not.toBeInTheDocument()
   })
 })
