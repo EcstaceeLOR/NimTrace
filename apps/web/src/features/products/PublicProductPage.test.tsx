@@ -49,7 +49,7 @@ describe('PublicProductPage', () => {
     )
   })
 
-  it('blocks a checked-out product before another buyer can enter checkout', async () => {
+  it('blocks a product with checkout in progress before another buyer can enter checkout', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       ...product,
       state: 'checked_out',
@@ -57,9 +57,9 @@ describe('PublicProductPage', () => {
 
     render(<PublicProductPage productId={product.id} />)
 
-    expect(await screen.findByText('Checked out')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Checkout already in progress' })).toBeDisabled()
-    expect(screen.getByText(/another buyer has an active checkout/i)).toBeInTheDocument()
+    expect(await screen.findByText('Checkout in progress')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Checkout in progress' })).toBeDisabled()
+    expect(screen.getByText(/another buyer currently has an active checkout/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
   })
 
