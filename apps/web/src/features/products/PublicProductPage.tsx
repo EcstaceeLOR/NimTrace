@@ -7,7 +7,6 @@ import {
 } from '@nimtrace/contracts'
 import { ProductImage } from '../../components/ProductImage'
 import { formatNimFromLuna } from '../../lib/formatting/nim'
-import { createNimiqPayDeepLink } from '../../lib/nimiq/deepLink'
 import { ProductCheckout } from './ProductCheckout'
 import { MiniAppTabs } from '../../components/MiniAppTabs'
 
@@ -33,7 +32,6 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
   const [state, setState] = useState<PageState>({ status: 'loading' })
   const [qrCode, setQrCode] = useState<string>()
   const publicUrl = useMemo(() => `${window.location.origin}/products/${encodeURIComponent(productId)}`, [productId])
-  const deepLink = useMemo(() => createNimiqPayDeepLink(publicUrl), [publicUrl])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -114,7 +112,6 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
           {purchasable ? <ProductCheckout product={product} publicUrl={publicUrl} /> : (
             <div className="product-actions">
               <button className="button button--primary" type="button" disabled>{unavailableLabel}</button>
-              <a className="button button--secondary" href={deepLink}>Open in Nimiq Pay</a>
             </div>
           )}
           <p className="product-trust-note">Payment will go directly to the issuer. NimTrace does not provide escrow or independently inspect the physical item.</p>
