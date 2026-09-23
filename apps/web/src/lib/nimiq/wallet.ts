@@ -52,12 +52,15 @@ interface SdkPort {
 
 export interface WalletAdapterOptions {
   timeoutMs?: number
+  interactiveTimeoutMs?: number
   sdk?: SdkPort
   hostAvailable?: () => boolean
   currentUrl?: () => string
 }
 
 const browserSdk: SdkPort = { init, requestDeviceIdentifier }
+const DEFAULT_PROVIDER_TIMEOUT_MS = 15_000
+const DEFAULT_INTERACTIVE_TIMEOUT_MS = 120_000
 
 function defaultHostAvailable() {
   return typeof window !== 'undefined' && Boolean(window.nimiqPay || window.nimiq)
@@ -83,13 +86,15 @@ function validateInteger(value: number | undefined, field: string, minimum = 0) 
 
 export class NimiqPayWalletAdapter {
   readonly #timeoutMs: number
+  readonly #interactiveTimeoutMs: number
   readonly #sdk: SdkPort
   readonly #hostAvailable: () => boolean
   readonly #currentUrl: () => string
   #providerPromise?: Promise<ProviderPort>
 
   constructor(options: WalletAdapterOptions = {}) {
-    this.#timeoutMs = options.timeoutMs ?? 15_000
+    this.#timeoutMs = options.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS
+    this.#interactiveTimeoutMs = options.interactiveTimeoutMs ?? DEFAULT_INTERACTIVE_TIMEOUT_MS
     this.#sdk = options.sdk ?? browserSdk
     this.#hostAvailable = options.hostAvailable ?? defaultHostAvailable
     this.#currentUrl = options.currentUrl ?? defaultCurrentUrl
@@ -125,7 +130,7 @@ export class NimiqPayWalletAdapter {
       if (isErrorResponse(response)) throw response
       this.#assertSignature(response)
       return response
-    })
+    }, this.#interactiveTimeoutMs)
   }
 
   async pay(input: TaggedPaymentInput): Promise<WalletOutcome<WalletPayment>> {
@@ -151,7 +156,7 @@ export class NimiqPayWalletAdapter {
         throw new WalletAdapterError('INVALID_PROVIDER_RESPONSE')
       }
       return { transactionHash: response }
-    })
+    }, this.#interactiveTimeoutMs)
   }
 
   async checkConsensus(): Promise<WalletOutcome<WalletConsensus>> {
@@ -173,7 +178,10 @@ export class NimiqPayWalletAdapter {
     if (!this.isAvailable()) return successfulWalletOutcome(null)
 
     try {
-      const identifier = await this.#withTimeout(this.#sdk.requestDeviceIdentifier({ reason }))
+      const identifier = await this.#withTimeout(
+        this.#sdk.requestDeviceIdentifier({ reason }),
+        this.#interactiveTimeoutMs,
+      )
       if (!/^[a-f0-9]{64}$/i.test(identifier)) throw new WalletAdapterError('INVALID_PROVIDER_RESPONSE')
       return successfulWalletOutcome(identifier)
     } catch (error) {
@@ -184,7 +192,7 @@ export class NimiqPayWalletAdapter {
   async #provider(): Promise<ProviderPort> {
     if (!this.isAvailable()) throw new WalletAdapterError('PROVIDER_MISSING')
 
-    this.#providerPromise ??= this.#withTimeout(this.#sdk.init({ timeout: this.#timeoutMs }))
+    this.#providerPromise ??= this.#withTimeout(this.#sdk.init({ timeout: this.#timeoutMs }), this.#timeoutMs)
     try {
       return await this.#providerPromise
     } catch (error) {
@@ -193,19 +201,22 @@ export class NimiqPayWalletAdapter {
     }
   }
 
-  async #run<T>(operation: (provider: ProviderPort) => Promise<T>): Promise<WalletOutcome<T>> {
+  async #run<T>(
+    operation: (provider: ProviderPort) => Promise<T>,
+    timeoutMs = this.#timeoutMs,
+  ): Promise<WalletOutcome<T>> {
     try {
       const provider = await this.#provider()
-      return successfulWalletOutcome(await this.#withTimeout(operation(provider)))
+      return successfulWalletOutcome(await this.#withTimeout(operation(provider), timeoutMs))
     } catch (error) {
       return normalizeWalletError(error)
     }
   }
 
-  async #withTimeout<T>(operation: Promise<T>): Promise<T> {
+  async #withTimeout<T>(operation: Promise<T>, timeoutMs = this.#timeoutMs): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new WalletAdapterError('REQUEST_TIMEOUT')), this.#timeoutMs)
+      timer = setTimeout(() => reject(new WalletAdapterError('REQUEST_TIMEOUT')), timeoutMs)
     })
 
     try {
