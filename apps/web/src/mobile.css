@@ -1,0 +1,579 @@
+@media (max-width: 800px) {
+  :root {
+    --mobile-gutter: 18px;
+    --mobile-nav-height: 68px;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 82% 0%, rgba(58, 232, 194, 0.08), transparent 20rem),
+      linear-gradient(180deg, #081517 0%, #0a0d16 58%, #0d0b1a 100%);
+  }
+
+  main {
+    width: 100%;
+    padding: 0 var(--mobile-gutter) calc(104px + env(safe-area-inset-bottom));
+  }
+
+  .nav {
+    min-height: 64px;
+    gap: 12px;
+  }
+
+  .brand {
+    gap: 9px;
+    font-size: 1.05rem;
+  }
+
+  .brand-logo {
+    width: 30px;
+    height: 30px;
+  }
+
+  .status {
+    max-width: 42%;
+    justify-content: flex-end;
+    font-size: 0.68rem;
+    text-align: right;
+  }
+
+  .hero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 28px 0 20px;
+  }
+
+  .hero h1 {
+    max-width: 11ch;
+    margin: 10px 0 14px;
+    font-size: clamp(2.45rem, 11vw, 3.15rem);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+  }
+
+  .eyebrow {
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+  }
+
+  .lede {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.52;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .actions > * {
+    min-width: 0;
+  }
+
+  .actions > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .button {
+    min-height: 50px;
+    border-radius: 15px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  .actions .button,
+  .route-page > .button,
+  .verify-form .button {
+    width: 100%;
+  }
+
+  .wallet-notice {
+    margin-top: 12px;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .foundation-note {
+    margin-top: 14px;
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
+  .passport {
+    min-height: 0;
+    border-radius: 20px;
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.26);
+  }
+
+  .passport-header {
+    padding: 16px;
+    font-size: 0.58rem;
+  }
+
+  .product-art {
+    min-height: 116px;
+  }
+
+  .product-orbit {
+    width: 116px;
+    height: 116px;
+  }
+
+  .product-core {
+    width: 66px;
+    height: 66px;
+    border-radius: 20px;
+    font-size: 2rem;
+  }
+
+  .passport-body {
+    padding: 2px 16px 16px;
+  }
+
+  .passport h2 {
+    margin: 6px 0 14px;
+    font-size: 1.35rem;
+  }
+
+  .passport dl div {
+    padding: 10px 8px;
+  }
+
+  .passport dt {
+    font-size: 0.56rem;
+  }
+
+  .passport dd {
+    font-size: 0.68rem;
+  }
+
+  .route-page {
+    min-height: auto;
+    align-content: start;
+    gap: 16px;
+    padding: 30px 0 24px;
+  }
+
+  .route-page h1 {
+    max-width: 12ch;
+    font-size: clamp(2.35rem, 10.5vw, 3rem);
+    line-height: 0.98;
+    letter-spacing: -0.05em;
+  }
+
+  .route-page ol {
+    gap: 0.7rem;
+    padding-left: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .verify-upload {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .verify-upload .button {
+    width: 100%;
+    min-height: 50px;
+    text-align: center;
+  }
+
+  .verify-upload > span {
+    grid-column: 1 / -1;
+    text-align: center;
+    font-size: 0.82rem;
+  }
+
+  .verify-form {
+    gap: 10px;
+    max-width: none;
+  }
+
+  .verify-form input,
+  .merchant-center__toolbar > input,
+  .catalogue-hero form input,
+  .transfer-panel input {
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+
+  .catalogue-hero {
+    padding: 28px 0 18px;
+  }
+
+  .catalogue-hero h1 {
+    max-width: 12ch;
+    margin: 8px 0 12px;
+    font-size: clamp(2.45rem, 10.5vw, 3.1rem);
+    line-height: 0.98;
+    letter-spacing: -0.052em;
+  }
+
+  .catalogue-hero > p:not(.eyebrow) {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.5;
+  }
+
+  .catalogue-hero form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    max-width: none;
+    margin-top: 18px;
+  }
+
+  .catalogue-hero form .button {
+    min-width: 96px;
+    min-height: 50px;
+  }
+
+  .catalogue-results {
+    padding: 22px 0 32px;
+  }
+
+  .catalogue-results__heading {
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .catalogue-results__heading h2 {
+    max-width: 12ch;
+    font-size: 1.65rem;
+    line-height: 1.05;
+  }
+
+  .catalogue-results__heading span {
+    flex: 0 0 auto;
+    font-size: 0.8rem;
+    text-align: right;
+  }
+
+  .catalogue-grid {
+    gap: 12px;
+  }
+
+  .catalogue-card {
+    border-radius: 18px;
+  }
+
+  .catalogue-card > img {
+    aspect-ratio: 16 / 10;
+  }
+
+  .catalogue-card__body {
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .catalogue-card__body p {
+    min-height: 0;
+    line-height: 1.42;
+  }
+
+  .catalogue-card__body .button {
+    width: 100%;
+  }
+
+  .passport-collection__header {
+    gap: 14px;
+    padding: 28px 0 18px;
+  }
+
+  .passport-collection__header h1,
+  .passport-detail h1 {
+    margin: 6px 0 10px;
+    font-size: clamp(2.35rem, 10vw, 3rem);
+    line-height: 0.98;
+  }
+
+  .passport-card-grid {
+    gap: 12px;
+    padding-bottom: 2rem;
+  }
+
+  .owned-passport-card {
+    border-radius: 18px;
+  }
+
+  .owned-passport-card__body {
+    padding: 14px;
+  }
+
+  .passport-detail__hero {
+    gap: 16px;
+    padding: 18px 0 24px;
+  }
+
+  .passport-proof-panel {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .passport-proof-panel dl div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .passport-proof-panel dd {
+    text-align: left;
+  }
+
+  .merchant-center {
+    padding: 28px 0 2rem;
+  }
+
+  .merchant-center__header {
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .merchant-center__header h1 {
+    font-size: clamp(2.2rem, 9vw, 2.8rem);
+    line-height: 1;
+  }
+
+  .merchant-center__toolbar {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .merchant-product-card {
+    padding: 14px;
+    border-radius: 17px;
+  }
+
+  .merchant-product-card__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .merchant-product-card__actions .button {
+    width: 100%;
+  }
+
+  .public-product-nav,
+  .verification-nav {
+    min-height: 62px;
+  }
+
+  .public-product-grid {
+    gap: 18px;
+    padding: 22px 0;
+  }
+
+  .public-product-card h1,
+  .verification-hero h1 {
+    font-size: clamp(2.35rem, 10vw, 3rem);
+    line-height: 0.98;
+  }
+
+  .product-price {
+    margin: 14px 0;
+    font-size: 2rem;
+  }
+
+  .product-proof-details {
+    gap: 18px;
+    margin: 18px 0 2rem;
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .verification-hero {
+    gap: 18px;
+    padding: 28px 0 24px;
+  }
+
+  .verification-verdict {
+    gap: 12px;
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 15px;
+  }
+
+  .verification-verdict > span {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .verification-section {
+    padding-block: 1.5rem;
+  }
+
+  .verification-fact-grid article,
+  .verification-claims {
+    border-radius: 16px;
+  }
+
+  .repair-acceptance__card,
+  .transfer-acceptance__card,
+  .merchant-presentation__card {
+    margin: 28px auto;
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .transfer-acceptance__card h1,
+  .merchant-presentation__card h1 {
+    font-size: clamp(2.25rem, 9.5vw, 2.9rem);
+  }
+
+  .miniapp-tabs {
+    position: fixed;
+    z-index: 40;
+    left: 14px;
+    right: 14px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    min-height: var(--mobile-nav-height);
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 22px;
+    background: rgba(14, 19, 28, 0.94);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(20px);
+  }
+
+  .miniapp-tabs a {
+    display: grid;
+    min-width: 0;
+    min-height: 52px;
+    place-items: center;
+    padding: 0 4px;
+    border-radius: 16px;
+    color: var(--muted);
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+
+  .miniapp-tabs a[aria-current='page'] {
+    color: #07110f;
+    background: var(--accent);
+  }
+
+  .miniapp-create-button {
+    position: fixed;
+    z-index: 42;
+    right: 24px;
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--mobile-nav-height) + 12px);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 46px;
+    padding: 0 14px 0 10px;
+    border: 1px solid rgba(58, 232, 194, 0.4);
+    border-radius: 999px;
+    color: #07110f;
+    background: var(--accent);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
+    font-size: 0.76rem;
+    font-weight: 850;
+  }
+
+  .miniapp-create-button > span:first-child {
+    display: grid;
+    width: 27px;
+    height: 27px;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(7, 17, 15, 0.1);
+    font-size: 1.35rem;
+    line-height: 1;
+  }
+
+  .miniapp-actions-backdrop {
+    position: fixed;
+    z-index: 44;
+    inset: 0;
+    border: 0;
+    background: rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(2px);
+  }
+
+  .miniapp-actions-sheet {
+    position: fixed;
+    z-index: 45;
+    left: 18px;
+    right: 18px;
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + var(--mobile-nav-height) + 14px);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid var(--line-strong);
+    border-radius: 22px;
+    background: #141a23;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  }
+
+  .miniapp-actions-sheet > div {
+    grid-column: 1 / -1;
+  }
+
+  .miniapp-actions-sheet p {
+    margin: 0 0 4px;
+  }
+
+  .miniapp-actions-sheet strong {
+    font-size: 1.15rem;
+  }
+
+  .miniapp-actions-sheet a {
+    min-height: 50px;
+    display: grid;
+    place-items: center;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 780;
+  }
+}
+
+@media (min-width: 801px) {
+  .miniapp-create-button,
+  .miniapp-actions-sheet,
+  .miniapp-actions-backdrop {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .actions,
+  .verify-upload,
+  .merchant-product-card__actions,
+  .miniapp-actions-sheet {
+    grid-template-columns: 1fr;
+  }
+
+  .actions > :last-child:nth-child(odd),
+  .verify-upload > span,
+  .miniapp-actions-sheet > div {
+    grid-column: auto;
+  }
+
+  .catalogue-hero form {
+    grid-template-columns: 1fr;
+  }
+
+  .miniapp-create-button {
+    right: 18px;
+  }
+}
