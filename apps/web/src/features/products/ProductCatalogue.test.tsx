@@ -34,16 +34,16 @@ describe('ProductCatalogue', () => {
 
     expect(await screen.findByText('Available Headphones')).toBeInTheDocument()
     expect(screen.queryByText('Reserved Headphones')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Available 1/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /Checked out 1/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Completed 1/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Available1/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /Checked out1/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Completed1/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Checked out 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Checked out1/i }))
     expect(screen.getByText('Reserved Headphones')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View checked-out product' })).toHaveAttribute('href', '/products/checked-out-product')
     expect(screen.queryByText('Available Headphones')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Completed 1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Completed1/i }))
     expect(screen.getByText('Completed Headphones')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View completed sale' })).toHaveAttribute('href', '/products/completed-product')
     expect(screen.queryByRole('link', { name: 'View listing and buy' })).not.toBeInTheDocument()
