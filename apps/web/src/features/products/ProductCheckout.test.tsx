@@ -166,11 +166,15 @@ describe('ProductCheckout', () => {
 
   it('automatically advances the staged finality tracker into the issued ownership proof', async () => {
     const checkoutWallet = wallet()
+    let releaseVerified!: (response: Response) => void
+    const verifiedResponse = new Promise<Response>((resolve) => {
+      releaseVerified = resolve
+    })
     const fetcher = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(intent), { status: 201 }))
       .mockResolvedValueOnce(submission())
       .mockResolvedValueOnce(finalityVerification(24))
-      .mockResolvedValueOnce(verification('verified'))
+      .mockImplementationOnce(() => verifiedResponse)
       .mockResolvedValueOnce(issuedPassport())
 
     render(<ProductCheckout
@@ -178,7 +182,7 @@ describe('ProductCheckout', () => {
       fetcher={fetcher}
       product={product}
       publicUrl="https://nimtrace.example/products/test"
-      reconcileIntervalMs={500}
+      reconcileIntervalMs={100}
       storage={storage()}
       wallet={checkoutWallet}
     />)
@@ -190,6 +194,9 @@ describe('ProductCheckout', () => {
     expect(screen.getByText('Included on Nimiq network')).toBeInTheDocument()
     expect(screen.getByText('Network finality')).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Network finality confirmations' })).toHaveAttribute('aria-valuenow', '24')
+
+    releaseVerified(verification('verified'))
+
     expect(await screen.findByText('Payment confirmed — ownership proof ready')).toBeInTheDocument()
     expect(screen.getAllByLabelText('Complete')).toHaveLength(5)
     expect(screen.getByRole('link', { name: 'Open ownership proof' })).toHaveAttribute('href', `/passports/${passportId}`)
