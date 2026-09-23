@@ -57,7 +57,7 @@ describe('PublicProductPage', () => {
 
     render(<PublicProductPage productId={product.id} />)
 
-    expect(await screen.findByText('Checkout in progress')).toBeInTheDocument()
+    expect(await screen.findByText('Checkout in progress', { selector: '.product-state' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Checkout in progress' })).toBeDisabled()
     expect(screen.getByText(/another buyer currently has an active checkout/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
