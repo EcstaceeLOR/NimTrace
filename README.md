@@ -97,8 +97,9 @@ inside Nimiq Pay and all quality commands.
 The React/Vite client and Hono API deploy together on a Cloudflare Worker so
 wallet calls remain same-origin. D1 stores replay-protected sessions, payment
 intents, passports, and append-only lifecycle history. Read-only Nimiq RPC
-providers independently verify payments. R2 is optional; the public deployment
-uses a signed repository image fallback until R2 is activated.
+providers independently verify payments. Product images are stored in Cloudflare
+R2 through the `PRODUCT_IMAGES` binding and are content-hashed into the signed
+product record.
 
 ## Stack
 
