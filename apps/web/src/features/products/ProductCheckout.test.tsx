@@ -45,6 +45,8 @@ const authentication = {
   },
 }
 
+const passportId = 'p'.repeat(24)
+
 function storage() {
   const values = new Map<string, string>()
   return {
@@ -81,6 +83,26 @@ function verification(
     reason: state === 'verified' ? 'verified_final' : state === 'inconclusive' ? 'provider_unavailable' : 'transaction_not_found',
     state,
     transactionHash,
+  }))
+}
+
+function issuedPassport() {
+  return new Response(JSON.stringify({
+    auditState: 'verified',
+    currentOwnerAddress: intent.buyerAddress,
+    firstEventHash: 'e'.repeat(64),
+    headEventHash: 'e'.repeat(64),
+    id: passportId,
+    issuedAt: '2026-09-14T12:01:00.000Z',
+    productId: product.id,
+    productVersion: 1,
+    purchaseBlockHeight: 120,
+    purchaseIntentId: intent.id,
+    purchaseTransactionHash: 'd'.repeat(64),
+    status: 'active',
+    version: 1,
+    warrantyExpiresAt: '2027-09-14T12:01:00.000Z',
+    warrantyStartedAt: '2026-09-14T12:01:00.000Z',
   }))
 }
 
@@ -195,14 +217,16 @@ describe('ProductCheckout', () => {
     expect(fetcher).toHaveBeenCalledTimes(4)
   })
 
-  it('reconciles an interrupted wallet request before offering another payment', async () => {
+  it('reconciles an interrupted wallet request into an inspectable ownership proof', async () => {
     const checkoutStorage = storage()
     checkoutStorage.values.set(`nimtrace:checkout:${product.id}`, JSON.stringify({
       intent,
       stage: 'awaiting_wallet',
     }))
     const checkoutWallet = wallet()
-    const fetcher = vi.fn().mockResolvedValue(verification('verified'))
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(verification('verified'))
+      .mockResolvedValueOnce(issuedPassport())
 
     const authenticate = vi.fn().mockResolvedValue(authentication)
     render(<StrictMode><ProductCheckout
@@ -214,10 +238,16 @@ describe('ProductCheckout', () => {
       wallet={checkoutWallet}
     /></StrictMode>)
 
-    expect(await screen.findByText('Payment confirmed')).toBeInTheDocument()
+    expect(await screen.findByText('Payment confirmed — ownership proof ready')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open ownership proof' })).toHaveAttribute('href', `/passports/${passportId}`)
+    expect(screen.getByRole('link', { name: 'View in my passports' })).toHaveAttribute('href', '/wallet')
     expect(checkoutWallet.pay).not.toHaveBeenCalled()
     expect(authenticate).toHaveBeenCalledTimes(1)
-    expect(fetcher).toHaveBeenCalledWith(`/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
+    expect(fetcher).toHaveBeenNthCalledWith(1, `/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
+      headers: { Authorization: `Bearer ${authentication.session.sessionToken}` },
+    }))
+    expect(fetcher).toHaveBeenNthCalledWith(2, `/api/payment-intents/${intent.id}/completion`, expect.objectContaining({
+      method: 'POST',
       headers: { Authorization: `Bearer ${authentication.session.sessionToken}` },
     }))
     expect(checkoutStorage.removeItem).toHaveBeenCalled()
