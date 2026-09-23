@@ -5,6 +5,7 @@ import {
   type PublicPassportVerification,
 } from '@nimtrace/contracts'
 import { MiniAppTabs } from '../../components/MiniAppTabs'
+import { ProductImage } from '../../components/ProductImage'
 
 interface PublicPassportVerificationProps {
   fetcher?: typeof fetch
@@ -101,15 +102,25 @@ export function PublicPassportVerification({
       </nav>
 
       <header className="verification-hero">
-        <div>
-          <p className="eyebrow">DIGITAL PRODUCT PASSPORT</p>
-          <div className="verification-verdict" role="status">
-            <span aria-hidden="true">{passport.overallState === 'verified' ? '✓' : passport.overallState === 'unverified' ? '!' : 'i'}</span>
-            <div><strong>{copy.label}</strong><p>{copy.message}</p></div>
+        <div className="verification-hero__identity">
+          <ProductImage
+            src={passport.product.imageUrl}
+            alt={`${passport.product.title} product`}
+            className="verification-product-image"
+            loading="eager"
+            fetchPriority="high"
+          />
+          <div>
+            <p className="eyebrow">DIGITAL PRODUCT PASSPORT</p>
+            <div className="verification-verdict" role="status">
+              <span aria-hidden="true">{passport.overallState === 'verified' ? '✓' : passport.overallState === 'unverified' ? '!' : 'i'}</span>
+              <div><strong>{copy.label}</strong><p>{copy.message}</p></div>
+            </div>
+            <h1>{passport.product.title}</h1>
+            <p className="verification-id">Passport {passport.id} · Product version {passport.product.version}</p>
+            <p className="verification-image-note">The photo is visual context supplied with the product record. Verification applies to the signed digital evidence, not a physical inspection of the pictured item.</p>
+            {passport.status === 'suspended' && <p className="verification-suspended">This passport is suspended. Its evidence remains visible, but it must not be transferred or used for warranty service.</p>}
           </div>
-          <h1>{passport.product.title}</h1>
-          <p className="verification-id">Passport {passport.id} · Product version {passport.product.version}</p>
-          {passport.status === 'suspended' && <p className="verification-suspended">This passport is suspended. Its evidence remains visible, but it must not be transferred or used for warranty service.</p>}
         </div>
         <div className="verification-qr-card">
           {qrCode ? <img src={qrCode} alt="Shareable public passport verification QR code" loading="lazy" decoding="async" /> : <span className="verification-qr-placeholder" />}
