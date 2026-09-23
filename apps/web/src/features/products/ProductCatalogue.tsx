@@ -8,7 +8,7 @@ type CatalogueCategory = 'available' | 'checked_out' | 'completed'
 
 const categoryCopy: Record<CatalogueCategory, { label: string; empty: string }> = {
   available: { label: 'Available', empty: 'No products are available to buy right now.' },
-  checked_out: { label: 'Checked out', empty: 'No products currently have an active checkout.' },
+  checked_out: { label: 'Checkout in progress', empty: 'No products currently have an active checkout.' },
   completed: { label: 'Completed', empty: 'No completed purchases yet.' },
 }
 
@@ -23,9 +23,9 @@ function ListingCard({ product }: { product: PublicProductResponse }) {
   const category = catalogueCategory(product) ?? 'available'
   const available = category === 'available'
   const stateMessage = available
-    ? 'Ready for a new owner'
+    ? 'No active checkout · ready for a new buyer'
     : category === 'checked_out'
-      ? 'Another buyer has an active checkout'
+      ? 'Reserved by another buyer · checkout is still active'
       : 'Purchase completed and ownership proof issued'
 
   return (
@@ -41,7 +41,7 @@ function ListingCard({ product }: { product: PublicProductResponse }) {
           className={`button ${available ? 'button--primary' : 'button--secondary'}`}
           href={`/products/${encodeURIComponent(product.id)}`}
         >
-          {available ? 'View listing and buy' : category === 'checked_out' ? 'View checked-out product' : 'View completed sale'}
+          {available ? 'View listing and buy' : category === 'checked_out' ? 'View checkout in progress' : 'View completed sale'}
         </a>
       </div>
     </article>
@@ -99,7 +99,7 @@ export function ProductCatalogue() {
   return (
     <main className="catalogue-shell">
       <nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/verify">Verify</a><a href="/issue">Issue</a><a href="/wallet">My passports</a></div></nav>
-      <section className="catalogue-hero"><p className="eyebrow">PUBLIC PRODUCT CATALOGUE</p><h1>Buy products with proof that follows.</h1><p>See what is available now, what is already in checkout, and what has completed ownership transfer.</p><form onSubmit={(event) => { event.preventDefault(); setState('loading'); setSubmittedSearch(search.trim()) }}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" aria-label="Search products" /><button className="button button--primary">Search</button></form></section>
+      <section className="catalogue-hero"><p className="eyebrow">PUBLIC PRODUCT CATALOGUE</p><h1>Buy products with proof that follows.</h1><p>Available products have no active reservation. Products being paid for are shown separately under Checkout in progress, and finished purchases move to Completed.</p><form onSubmit={(event) => { event.preventDefault(); setState('loading'); setSubmittedSearch(search.trim()) }}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" aria-label="Search products" /><button className="button button--primary">Search</button></form></section>
 
       <section className="catalogue-results" aria-live="polite">
         <div className="catalogue-lifecycle" role="group" aria-label="Product availability categories">
