@@ -11,6 +11,7 @@ import {
 import { formatNimFromLuna } from '../../lib/formatting/nim'
 import { authenticateWallet } from '../../lib/nimiq/auth'
 import { nimiqPayWallet, type NimiqPayWalletAdapter } from '../../lib/nimiq/wallet'
+import { PaymentProgress } from './PaymentProgress'
 
 type CheckoutWallet = Pick<
   NimiqPayWalletAdapter,
@@ -37,9 +38,9 @@ type CheckoutState =
   | { status: 'retry_submission'; active: CheckoutSession; message: string; transactionHash: string }
   | { status: 'reconciling'; record: PersistedCheckout }
   | { status: 'resumable'; message?: string; record: PersistedCheckout }
-  | { status: 'submitted'; message: string; record: PersistedCheckout }
+  | { status: 'submitted'; message: string; record: PersistedCheckout; verification?: PaymentVerificationResponse }
   | { status: 'confirmed'; intent: PurchaseIntentResponse; passportId: string; transactionHash: string }
-  | { status: 'uncertain'; message: string; record: PersistedCheckout }
+  | { status: 'uncertain'; message: string; record: PersistedCheckout; verification?: PaymentVerificationResponse }
   | { status: 'blocked'; message: string }
   | { status: 'error'; message: string }
 
@@ -119,7 +120,13 @@ function pendingMessage(verification: PaymentVerificationResponse) {
   if (verification.reason === 'awaiting_finality') {
     return `Payment confirming: ${verification.confirmations ?? 0} / ${verification.finalityConfirmations} confirmations. NimTrace checks automatically; finality normally completes about a minute after inclusion.`
   }
-  return 'NimTrace is still looking for the existing payment. It checks automatically every few seconds; do not pay again while its unique tag is reconciled.'
+  if (verification.reason === 'awaiting_inclusion') {
+    return 'The transaction has been detected and is waiting to be included in a Nimiq block.'
+  }
+  if (verification.reason === 'transaction_not_found' || verification.reason === 'transaction_not_submitted') {
+    return 'NimTrace is waiting for the payment transaction to appear on the network. It checks automatically every few seconds; do not pay again.'
+  }
+  return 'NimTrace is reconciling the existing payment automatically. Do not start another payment.'
 }
 
 export function ProductCheckout({
@@ -177,8 +184,8 @@ export function ProductCheckout({
       : { intent: record.intent, stage: 'awaiting_wallet' }
     persist(updated)
     setState(transactionHash
-      ? { status: 'submitted', message: pendingMessage(verification), record: updated }
-      : { status: 'uncertain', message: pendingMessage(verification), record: updated })
+      ? { status: 'submitted', message: pendingMessage(verification), record: updated, verification }
+      : { status: 'uncertain', message: pendingMessage(verification), record: updated, verification })
   }, [clearPersisted, persist])
 
   const requestVerification = useCallback(async (
@@ -193,6 +200,18 @@ export function ProductCheckout({
     const transactionHash = verification.transactionHash ?? record.transactionHash
 
     if (verification.state === 'verified' && transactionHash) {
+      const finalRecord: PersistedCheckout = {
+        intent: record.intent,
+        stage: 'submitted',
+        transactionHash,
+      }
+      persist(finalRecord)
+      setState({
+        status: 'submitted',
+        message: 'Payment finality reached. NimTrace is issuing the ownership proof now.',
+        record: finalRecord,
+        verification,
+      })
       const completionResponse = await fetcher(`/api/payment-intents/${encodeURIComponent(record.intent.id)}/completion`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` },
@@ -213,7 +232,7 @@ export function ProductCheckout({
     }
 
     applyVerification(record, verification)
-  }, [applyVerification, clearPersisted, fetcher])
+  }, [applyVerification, clearPersisted, fetcher, persist])
 
   async function prepareCheckout() {
     if (inFlight.current) return
@@ -510,9 +529,12 @@ export function ProductCheckout({
 
       {state.status === 'submitted' && (
         <section className="checkout-status checkout-status--submitted" role="status">
-          <strong>Payment submitted</strong>
+          <strong>Payment in progress</strong>
           <p>{state.message} This is not yet a completed purchase.</p>
-          <p>NimTrace keeps checking automatically while this page is open. You can also check immediately below.</p>
+          <PaymentProgress
+            transactionHash={state.record.transactionHash}
+            verification={state.verification}
+          />
           <code>{state.record.transactionHash}</code>
           <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
         </section>
@@ -522,6 +544,7 @@ export function ProductCheckout({
         <section className="checkout-status checkout-status--submitted" role="status">
           <strong>Payment confirmed — ownership proof ready</strong>
           <p>Independent network verification is final. Your wallet-owned product passport has been issued and is ready to inspect.</p>
+          <PaymentProgress confirmed transactionHash={state.transactionHash} />
           <code>{state.transactionHash}</code>
           <div className="product-actions">
             <a className="button button--primary" href={`/passports/${encodeURIComponent(state.passportId)}`}>Open ownership proof</a>
@@ -531,11 +554,15 @@ export function ProductCheckout({
       )}
 
       {state.status === 'uncertain' && (
-        <section className="checkout-status checkout-status--delayed" role="alert">
-          <strong>Payment result delayed</strong>
+        <section className="checkout-status checkout-status--delayed" role="status">
+          <strong>Payment reconciliation in progress</strong>
           <p>{state.message}</p>
+          <PaymentProgress
+            transactionHash={state.record.transactionHash}
+            verification={state.verification}
+          />
           <p>NimTrace keeps checking automatically while this page is open. Do not start another payment.</p>
-          <code>{state.record.intent.transactionData}</code>
+          <code>{state.record.transactionHash ?? state.record.intent.transactionData}</code>
           <button className="button button--primary" type="button" onClick={() => void reconcileExisting(state.record)}>Check payment status</button>
         </section>
       )}
