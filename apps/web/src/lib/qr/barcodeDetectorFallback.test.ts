@@ -7,6 +7,13 @@ interface DetectorWindow extends Window {
   }
 }
 
+type Decoder = (
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options?: { inversionAttempts?: 'attemptBoth' | 'dontInvert' | 'onlyInvert' | 'invertFirst' },
+) => { data: string } | null
+
 describe('QR BarcodeDetector fallback', () => {
   afterEach(() => vi.restoreAllMocks())
 
@@ -36,7 +43,7 @@ describe('QR BarcodeDetector fallback', () => {
         getContext: () => ({ drawImage, getImageData }),
       } as unknown as HTMLCanvasElement
     })
-    const decoder = vi.fn().mockReturnValue({ data: 'https://nimtrace.vercel.app/passports/passport-123' })
+    const decoder = vi.fn<Decoder>().mockReturnValue({ data: 'https://nimtrace.vercel.app/passports/passport-123' })
     const target = {} as DetectorWindow
 
     expect(installQrBarcodeDetectorFallback(target, async () => decoder)).toBe(true)
@@ -63,7 +70,8 @@ describe('QR BarcodeDetector fallback', () => {
       } as unknown as HTMLCanvasElement
     })
     const target = {} as DetectorWindow
-    installQrBarcodeDetectorFallback(target, async () => vi.fn().mockReturnValue(null))
+    const decoder = vi.fn<Decoder>().mockReturnValue(null)
+    installQrBarcodeDetectorFallback(target, async () => decoder)
 
     const detector = new target.BarcodeDetector!({ formats: ['qr_code'] })
     await expect(detector.detect({ width: 32, height: 32 } as ImageBitmap)).resolves.toEqual([])
@@ -71,7 +79,8 @@ describe('QR BarcodeDetector fallback', () => {
 
   it('rejects unsupported detector formats', () => {
     const target = {} as DetectorWindow
-    installQrBarcodeDetectorFallback(target, async () => vi.fn())
+    const decoder = vi.fn<Decoder>().mockReturnValue(null)
+    installQrBarcodeDetectorFallback(target, async () => decoder)
     const Detector = target.BarcodeDetector!
     expect(() => new Detector({ formats: ['code_128'] })).toThrow(/Only QR code/)
   })
