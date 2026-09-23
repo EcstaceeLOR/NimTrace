@@ -1,47 +1,99 @@
 import { ProductImageResponseSchema, type ProductImageResponse } from '@nimtrace/contracts'
 
-const SOURCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'])
+const SOURCE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_SOURCE_BYTES = 10_000_000
 const MAX_SOURCE_DIMENSION = 12_000
 const MAX_SOURCE_PIXELS = 40_000_000
 const OUTPUT_DIMENSION = 1600
 
+interface DecodedImage {
+  close(): void
+  height: number
+  source: CanvasImageSource
+  width: number
+}
+
 export function validateProductImageFile(file: Pick<File, 'size' | 'type'>) {
   if (!SOURCE_TYPES.has(file.type)) {
-    throw new Error('Choose a JPEG, PNG, WebP, or HEIC image. SVG, GIF, and other active formats are not accepted.')
+    if (file.type === 'image/heic' || file.type === 'image/heif') {
+      throw new Error('HEIC/HEIF is not reliably supported inside Nimiq Pay yet. Choose or export the photo as JPEG, PNG, or WebP and retry.')
+    }
+    throw new Error('Choose a JPEG, PNG, or WebP image. SVG, GIF, HEIC, and other unsupported formats are not accepted.')
   }
   if (file.size === 0 || file.size > MAX_SOURCE_BYTES) {
     throw new Error('Choose an image smaller than 10 MB.')
   }
 }
 
-export async function processProductImage(file: File): Promise<Blob> {
-  validateProductImageFile(file)
-  let bitmap: ImageBitmap
+async function decodeWithImageElement(file: File): Promise<DecodedImage> {
+  const url = URL.createObjectURL(file)
+  const image = new Image()
+  image.decoding = 'async'
+
   try {
-    bitmap = await createImageBitmap(file)
-  } catch {
-    throw new Error('This file could not be decoded as an image.')
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve()
+      image.onerror = () => reject(new Error('decode_failed'))
+      image.src = url
+    })
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error('decode_failed')
+    return {
+      close: () => URL.revokeObjectURL(url),
+      height: image.naturalHeight,
+      source: image,
+      width: image.naturalWidth,
+    }
+  } catch (error) {
+    URL.revokeObjectURL(url)
+    throw error
+  }
+}
+
+async function decodeProductImage(file: File): Promise<DecodedImage> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file)
+      return {
+        close: () => bitmap.close(),
+        height: bitmap.height,
+        source: bitmap,
+        width: bitmap.width,
+      }
+    } catch {
+      // Older embedded WebViews can expose createImageBitmap but fail on files
+      // the regular image decoder can still render, so try that path next.
+    }
   }
 
   try {
+    return await decodeWithImageElement(file)
+  } catch {
+    throw new Error('This image could not be decoded on this device. Choose a JPEG, PNG, or WebP photo and retry.')
+  }
+}
+
+export async function processProductImage(file: File): Promise<Blob> {
+  validateProductImageFile(file)
+  const decoded = await decodeProductImage(file)
+
+  try {
     if (
-      bitmap.width < 64 || bitmap.height < 64
-      || bitmap.width > MAX_SOURCE_DIMENSION || bitmap.height > MAX_SOURCE_DIMENSION
-      || bitmap.width * bitmap.height > MAX_SOURCE_PIXELS
+      decoded.width < 64 || decoded.height < 64
+      || decoded.width > MAX_SOURCE_DIMENSION || decoded.height > MAX_SOURCE_DIMENSION
+      || decoded.width * decoded.height > MAX_SOURCE_PIXELS
     ) {
       throw new Error('Choose an image between 64px and 12,000px with at most 40 megapixels.')
     }
 
-    const scale = Math.min(1, OUTPUT_DIMENSION / Math.max(bitmap.width, bitmap.height))
-    const width = Math.round(bitmap.width * scale)
-    const height = Math.round(bitmap.height * scale)
+    const scale = Math.min(1, OUTPUT_DIMENSION / Math.max(decoded.width, decoded.height))
+    const width = Math.round(decoded.width * scale)
+    const height = Math.round(decoded.height * scale)
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = height
     const context = canvas.getContext('2d', { alpha: false })
     if (!context) throw new Error('Image processing is unavailable on this device.')
-    context.drawImage(bitmap, 0, 0, width, height)
+    context.drawImage(decoded.source, 0, 0, width, height)
 
     const output = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/webp', 0.84)
@@ -50,8 +102,8 @@ export async function processProductImage(file: File): Promise<Blob> {
       return output
     }
 
-    // Some embedded WebViews (including older Nimiq Pay devices) cannot encode WebP.
-    // JPEG is still safe after the same dimension checks and is accepted by the API.
+    // Some embedded WebViews cannot encode WebP. JPEG is safe after the same
+    // pixel checks and remains accepted by the API.
     const fallback = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, 'image/jpeg', 0.82)
     })
@@ -63,7 +115,7 @@ export async function processProductImage(file: File): Promise<Blob> {
     }
     throw new Error('This device could not create a safe image. Choose an existing JPEG or PNG file and retry.')
   } finally {
-    bitmap.close()
+    decoded.close()
   }
 }
 
