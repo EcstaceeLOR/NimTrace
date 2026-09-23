@@ -106,7 +106,7 @@ test('verify route resolves a passport ID into its signed public proof', async (
   await expect(page.getByRole('heading', { name: product.title })).toBeVisible()
 })
 
-test('issuer entry route remains available to an authenticated merchant session', async ({ page }) => {
+test('issuer entry route restores an authenticated merchant session', async ({ page }) => {
   await page.addInitScript(() => {
     window.sessionStorage.setItem('nimtrace.walletSession', JSON.stringify({
       walletAddress: 'NQ12 TEST 0000 0000 0000 0000 0000 0000 0000',
@@ -120,6 +120,7 @@ test('issuer entry route remains available to an authenticated merchant session'
 
   await page.goto('/issue')
 
-  await expect(page.getByRole('heading', { name: 'Issue a signed product passport.' })).toBeVisible()
-  await expect(page.getByText(/Create a real product record/i)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Issue a product' })).toBeVisible()
+  await expect(page.getByLabel('Product title')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Review product' })).toBeVisible()
 })
