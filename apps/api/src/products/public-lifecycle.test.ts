@@ -17,14 +17,14 @@ const migrations = [
 
 class TestStatement {
   #statement: StatementSync
-  #values: unknown[] = []
+  #values: string[] = []
 
   constructor(statement: StatementSync) {
     this.#statement = statement
   }
 
   bind(...values: unknown[]) {
-    this.#values = values
+    this.#values = values as string[]
     return this
   }
 
