@@ -26,7 +26,7 @@ const products = [
 describe('ProductCatalogue', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('separates available, checked-out, and completed products before checkout', async () => {
+  it('keeps available products separate from active checkout and completed products', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: products })))
     vi.stubGlobal('fetch', fetcher)
 
@@ -34,18 +34,22 @@ describe('ProductCatalogue', () => {
 
     expect(await screen.findByText('Available Headphones')).toBeInTheDocument()
     expect(screen.queryByText('Reserved Headphones')).not.toBeInTheDocument()
+    expect(screen.queryByText('Completed Headphones')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Available1/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /Checked out1/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Checkout in progress1/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Completed1/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Checked out1/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Checkout in progress1/i }))
     expect(screen.getByText('Reserved Headphones')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View checked-out product' })).toHaveAttribute('href', '/products/checked-out-product')
+    expect(screen.getByRole('link', { name: 'View checkout in progress' })).toHaveAttribute('href', '/products/checked-out-product')
     expect(screen.queryByText('Available Headphones')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'View listing and buy' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Completed1/i }))
     expect(screen.getByText('Completed Headphones')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View completed sale' })).toHaveAttribute('href', '/products/completed-product')
+    expect(screen.queryByText('Available Headphones')).not.toBeInTheDocument()
+    expect(screen.queryByText('Reserved Headphones')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'View listing and buy' })).not.toBeInTheDocument()
 
     expect(fetcher).toHaveBeenCalledWith(
