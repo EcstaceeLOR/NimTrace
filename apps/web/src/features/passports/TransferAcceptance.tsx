@@ -6,6 +6,7 @@ import {
   type PublicPassportVerification,
   type TransferIntentResponse,
 } from '@nimtrace/contracts'
+import { formatNimFromLuna } from '../../lib/formatting/nim'
 import { authenticateWallet } from '../../lib/nimiq/auth'
 import { nimiqPayWallet } from '../../lib/nimiq/wallet'
 import { MiniAppTabs } from '../../components/MiniAppTabs'
@@ -84,16 +85,36 @@ export function TransferAcceptance({ fetcher = fetch, intentId }: { fetcher?: ty
     }
   }
 
+  const isPaidTransfer = Boolean(intent && intent.priceLuna > 0)
+
   return (
     <main className="transfer-acceptance">
-      <nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Recipient-bound gift</span></nav>
+      <nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><span>Recipient-bound transfer</span></nav>
       <section className="transfer-acceptance__card">
         <p className="eyebrow">PASSPORT TRANSFER</p>
         <h1>Receive a product passport.</h1>
-        {state === 'idle' && <><p>Connect the recipient wallet to review the complete public proof before signing acceptance. No NIM payment is requested.</p><button className="button button--primary" type="button" onClick={() => void connectRecipient()}>Review with Nimiq Pay</button></>}
+        {state === 'idle' && <><p>Connect the recipient wallet to review the complete public proof, transfer price, and exact approval steps before signing anything.</p><button className="button button--primary" type="button" onClick={() => void connectRecipient()}>Review with Nimiq Pay</button></>}
         {state === 'loading' && <p role="status">Loading the signed offer and passport proof…</p>}
-        {passport && intent && state !== 'done' && state !== 'error' && <div className="transfer-review"><h2>{passport.product.title}</h2><p>{passport.overallState === 'verified' ? 'Verified passport' : 'Review required'} · Current owner {passport.ownership.maskedCurrentOwner}</p><dl><div><dt>Recipient wallet</dt><dd>{intent.toAddress}</dd></div><div><dt>Warranty</dt><dd>{passport.warranty.state} until {new Date(passport.warranty.expiresAt).toLocaleDateString()}</dd></div><div><dt>Events</dt><dd>{passport.eventChain.eventCount} linked</dd></div></dl><button className="button button--primary" type="button" onClick={() => void accept()}>Sign acceptance</button></div>}
-        {state === 'signing' && <p role="status">Waiting for recipient signature…</p>}
+        {passport && intent && state !== 'done' && state !== 'error' && (
+          <div className="transfer-review">
+            <h2>{passport.product.title}</h2>
+            <p>{passport.overallState === 'verified' ? 'Verified passport' : 'Review required'} · Current owner {passport.ownership.maskedCurrentOwner}</p>
+            <dl>
+              <div><dt>Recipient wallet</dt><dd>{intent.toAddress}</dd></div>
+              <div><dt>Transfer type</dt><dd>{isPaidTransfer ? 'Paid resale' : 'Free gift'}</dd></div>
+              <div><dt>Price</dt><dd>{isPaidTransfer ? formatNimFromLuna(intent.priceLuna) : 'No NIM payment'}</dd></div>
+              <div><dt>Warranty</dt><dd>{passport.warranty.state} until {new Date(passport.warranty.expiresAt).toLocaleDateString()}</dd></div>
+              <div><dt>Events</dt><dd>{passport.eventChain.eventCount} linked</dd></div>
+            </dl>
+            <p className="checkout-notice">
+              {isPaidTransfer
+                ? `You will first sign acceptance. Nimiq Pay will then ask you to approve a direct ${formatNimFromLuna(intent.priceLuna)} payment to the current owner. Ownership settles only after that payment is independently verified.`
+                : 'This is a gift. You will sign acceptance, but no NIM payment will be requested.'}
+            </p>
+            <button className="button button--primary" type="button" onClick={() => void accept()}>{isPaidTransfer ? 'Sign acceptance, then pay' : 'Sign acceptance'}</button>
+          </div>
+        )}
+        {state === 'signing' && <p role="status">{isPaidTransfer ? 'Waiting for recipient signature. Payment approval comes next.' : 'Waiting for recipient signature…'}</p>}
         {state === 'done' && <div className="transfer-success"><h2>Passport received</h2><p>Ownership changed atomically. The former owner no longer has owner actions.</p><a className="button button--secondary" href="/">Back to NimTrace</a></div>}
         {state === 'error' && <div className="transfer-error" role="alert"><p>{message}</p><button className="button button--secondary" type="button" onClick={() => setState('idle')}>Try again</button></div>}
       </section>
