@@ -133,7 +133,7 @@ export function ProductCheckout({
 }: ProductCheckoutProps) {
   const [state, setState] = useState<CheckoutState>(() => initialCheckoutState(storage, product.id))
   const inFlight = useRef(false)
-  const sessionTokenRef = useRef<string>()
+  const sessionTokenRef = useRef<string | null>(null)
   const deepLink = wallet.deepLink(publicUrl)
 
   const persist = useCallback((record: PersistedCheckout) => {
@@ -160,7 +160,7 @@ export function ProductCheckout({
 
     if (verification.state === 'rejected') {
       clearPersisted()
-      sessionTokenRef.current = undefined
+      sessionTokenRef.current = null
       if (verification.reason === 'intent_inactive' && !transactionHash) {
         setState({ status: 'error', message: 'The previous unpaid checkout expired. You can prepare a fresh checkout.' })
         return
@@ -202,7 +202,7 @@ export function ProductCheckout({
       }
       const passport = IssuedPassportResponseSchema.parse(await completionResponse.json())
       clearPersisted()
-      sessionTokenRef.current = undefined
+      sessionTokenRef.current = null
       setState({
         status: 'confirmed',
         intent: record.intent,
