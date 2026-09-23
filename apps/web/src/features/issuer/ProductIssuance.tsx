@@ -196,7 +196,7 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
                 ref={cameraInput}
                 name="cameraImage"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                accept="image/png,image/jpeg,image/webp"
                 capture="environment"
                 onChange={selectImage}
               />
@@ -207,11 +207,11 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
                 ref={uploadInput}
                 name="uploadImage"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={selectImage}
               />
             </label>
-            <small className="issuer-help">Choose either option. NimTrace keeps the original camera path and falls back to JPEG when WebP is unavailable.</small>
+            <small className="issuer-help">JPEG, PNG, and WebP are supported across the target Nimiq Pay WebViews. HEIC/HEIF should be exported as JPEG first.</small>
           </fieldset>
           {previewUrl && (
             <div className="issuer-image-preview">
