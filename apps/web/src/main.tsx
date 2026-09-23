@@ -6,6 +6,7 @@ import { installQrBarcodeDetectorFallback } from './lib/qr/barcodeDetectorFallba
 import './styles.css'
 import './product-images.css'
 import './mobile.css'
+import './mobile-polish.css'
 
 installQrBarcodeDetectorFallback()
 
