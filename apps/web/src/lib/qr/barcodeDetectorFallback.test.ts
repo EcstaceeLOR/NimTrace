@@ -12,7 +12,9 @@ describe('QR BarcodeDetector fallback', () => {
 
   it('keeps the native BarcodeDetector when the WebView provides one', () => {
     class NativeDetector {
-      constructor(_options: { formats: string[] }) {}
+      constructor(options: { formats: string[] }) {
+        void options
+      }
       async detect() { return [{ rawValue: 'native' }] }
     }
     const target = { BarcodeDetector: NativeDetector } as unknown as DetectorWindow
