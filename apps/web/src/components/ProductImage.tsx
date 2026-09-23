@@ -1,4 +1,4 @@
-import { useEffect, useState, type ImgHTMLAttributes } from 'react'
+import { useState, type ImgHTMLAttributes } from 'react'
 
 interface ProductImageProps {
   alt: string
@@ -17,11 +17,9 @@ export function ProductImage({
   loading = 'lazy',
   src,
 }: ProductImageProps) {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-
-  useEffect(() => {
-    setStatus('loading')
-  }, [src])
+  const [loadedSrc, setLoadedSrc] = useState<string>()
+  const [failedSrc, setFailedSrc] = useState<string>()
+  const status = failedSrc === src ? 'error' : loadedSrc === src ? 'ready' : 'loading'
 
   return (
     <div className={`product-image-frame ${className} product-image-frame--${status}`.trim()}>
@@ -32,8 +30,8 @@ export function ProductImage({
           decoding={decoding}
           fetchPriority={fetchPriority}
           loading={loading}
-          onLoad={() => setStatus('ready')}
-          onError={() => setStatus('error')}
+          onLoad={() => setLoadedSrc(src)}
+          onError={() => setFailedSrc(src)}
         />
       ) : (
         <div className="product-image-fallback" role="img" aria-label={`${alt}. Product image unavailable.`}>
