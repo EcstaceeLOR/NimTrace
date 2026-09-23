@@ -66,7 +66,6 @@ export function App() {
   const [api, setApi] = useState<ApiState>({ status: 'checking' })
   const [wallet, setWallet] = useState<WalletState>(() => readWalletSession())
   const [readiness, setReadiness] = useState<WalletReadiness>({ status: 'idle' })
-  const [showIssuer, setShowIssuer] = useState(false)
   const [verificationId, setVerificationId] = useState('')
   const [scanMessage, setScanMessage] = useState('')
   const [scanState, setScanState] = useState<'idle' | 'reading'>('idle')
@@ -109,6 +108,10 @@ export function App() {
   }, [passportRoute, presentationRoute, productRoute, repairRoute, transferRoute])
 
   async function viewPassports() {
+    if (wallet.status === 'connected') {
+      if (window.location.pathname !== '/wallet') window.location.assign('/wallet')
+      return
+    }
     if (!nimiqPayWallet.isAvailable()) {
       setWallet({ status: 'outside', deepLink: nimiqPayWallet.deepLink() })
       return
@@ -125,6 +128,7 @@ export function App() {
         expiresAt: outcome.session.expiresAt,
       })
       saveWalletSession(outcome.session)
+      if (window.location.pathname !== '/wallet') window.location.assign('/wallet')
     } else if (outcome.status === 'cancelled') {
       setWallet({ status: 'cancelled' })
     } else {
@@ -134,7 +138,7 @@ export function App() {
 
   async function issueProduct() {
     if (wallet.status === 'connected') {
-      setShowIssuer(true)
+      if (window.location.pathname === '/') window.location.assign('/issue')
       return
     }
     if (!nimiqPayWallet.isAvailable()) {
@@ -152,7 +156,7 @@ export function App() {
         expiresAt: outcome.session.expiresAt,
       })
       saveWalletSession(outcome.session)
-      setShowIssuer(true)
+      if (window.location.pathname === '/') window.location.assign('/issue')
     } else if (outcome.status === 'cancelled') {
       setWallet({ status: 'cancelled' })
     } else {
@@ -185,12 +189,6 @@ export function App() {
     } else {
       setReadiness({ status: 'error', message: consensus.error.message })
     }
-  }
-
-  function disconnectWallet() {
-    window.sessionStorage.removeItem(WALLET_SESSION_KEY)
-    setWallet({ status: 'idle' })
-    setShowIssuer(false)
   }
 
   if (productRoute?.[1]) {
@@ -279,19 +277,6 @@ export function App() {
     const detail = issueRoute ? 'Create a real product record, sign it in Nimiq Pay, then share its purchase page.' : merchantRoute ? 'See live product state, purchaser status, warranty terms, and shareable proof.' : 'See passports owned by this wallet, verify warranty status, and transfer products safely.'
     const action = issueRoute || merchantRoute ? issueProduct : viewPassports
     return <main><nav className="nav"><a className="brand" href="/"><img className="brand-logo" src="/nimtrace-logo-v1.png" alt="NimTrace" />NimTrace</a><div className="nav-links"><a href="/how-it-works">How it works</a><a href={issueRoute ? "/wallet" : merchantRoute ? "/issue" : "/merchant"}>{issueRoute ? 'My passports' : merchantRoute ? 'Issue' : 'Merchant studio'}</a></div></nav>{wallet.status === 'connected' && issueRoute ? <ProductIssuance sessionToken={wallet.sessionToken} onClose={() => { window.location.href = '/' }} /> : wallet.status === 'connected' && merchantRoute ? <MerchantCommandCenter sessionToken={wallet.sessionToken} onBack={() => { window.location.href = '/' }} /> : wallet.status === 'connected' ? <PassportCollection address={wallet.address} sessionToken={wallet.sessionToken} onBack={() => { window.location.href = '/' }} /> : <section className="route-page"><p className="eyebrow">NIMIQ PAY REQUIRED</p><h1>{title}</h1><p className="lede">{detail}</p>{!miniAppAvailable ? <a className="button button--primary" href={miniAppLink}>Open in Nimiq Pay</a> : <button className="button button--primary" type="button" onClick={() => void action()}>{issueRoute ? 'Connect and issue' : merchantRoute ? 'Connect merchant wallet' : 'Connect my wallet'}</button>}{wallet.status === 'error' && <p className="wallet-notice wallet-notice--error" role="alert">{wallet.message}</p>}</section>}<MiniAppTabs /></main>
-  }
-
-  if (wallet.status === 'connected' && !showIssuer) {
-    return (
-      <main>
-        <PassportCollection
-          address={wallet.address}
-          sessionToken={wallet.sessionToken}
-          onBack={disconnectWallet}
-        />
-        <MiniAppTabs />
-      </main>
-    )
   }
 
   return (
@@ -406,12 +391,6 @@ export function App() {
           </div>
         </article>
       </section>
-      {showIssuer && wallet.status === 'connected' && (
-        <ProductIssuance
-          sessionToken={wallet.sessionToken}
-          onClose={() => setShowIssuer(false)}
-        />
-      )}
       <MiniAppTabs />
     </main>
   )
