@@ -39,6 +39,7 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
   const [selectedImage, setSelectedImage] = useState<File>()
   const cameraInput = useRef<HTMLInputElement>(null)
   const uploadInput = useRef<HTMLInputElement>(null)
+  const displayedImageUrl = uploadedImage?.url || previewUrl
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -240,6 +241,11 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
         <div className="issuer-review">
           <p className="issuer-state">Ready for wallet signature</p>
           <h3>{state.challenge.payload.title}</h3>
+          {displayedImageUrl && (
+            <div className="issuer-image-preview">
+              <img src={displayedImageUrl} alt={`${state.challenge.payload.title} product preview`} />
+            </div>
+          )}
           <dl>
             <div><dt>Price</dt><dd>{formatNimFromLuna(state.challenge.payload.priceLuna)}</dd></div>
             <div><dt>Warranty</dt><dd>{state.challenge.payload.warrantyDurationDays} days</dd></div>
@@ -265,6 +271,11 @@ export function ProductIssuance({ onClose, sessionToken }: ProductIssuanceProps)
         <div className="issuer-success" role="status">
           <p className="issuer-state">Published</p>
           <h3>Signed product issued.</h3>
+          {displayedImageUrl && (
+            <div className="issuer-image-preview">
+              <img src={displayedImageUrl} alt="Published product" />
+            </div>
+          )}
           <p>Product ID: <code>{state.id}</code></p>
           <p className="issuer-help">This is the public listing ID. A wallet-owned Passport ID is created for the buyer after the NIM purchase is confirmed.</p>
           <a className="button button--primary" href={`/products/${encodeURIComponent(state.id)}`}>View public product</a>

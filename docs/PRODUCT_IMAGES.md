@@ -13,13 +13,13 @@ browser must successfully decode the pixels, validates source dimensions and a
 rasterizes the result to WebP. This strips active content, animation, and source
 metadata before upload.
 
-The Worker accepts only the resulting `image/webp`, with a 1.5 MB limit. It
-independently validates the RIFF/WebP structure, complete frame chunks, decoded
-dimensions, and container length, then hashes the exact bytes. The object is
-stored with immutable cache metadata at:
+The Worker accepts only the resulting safe WebP or JPEG output, with a 1.5 MB
+limit. It independently validates the container structure, decoded dimensions,
+and length, then hashes the exact bytes. The object is stored with immutable
+cache metadata at:
 
 ```text
-products/<hashed-wallet-prefix>/<random-unguessable-path>/<content-hash>.webp
+products/<hashed-wallet-prefix>/<random-unguessable-path>/<content-hash>.<webp|jpg>
 ```
 
 Before issuing a signing challenge, the API checks that this exact object
@@ -30,25 +30,42 @@ metadata matches the hash that will enter the signed product payload.
 
 The merchant form provides a camera-oriented file picker, preview, remove
 action, decode/resize state, byte-upload progress, retry after failure, and
-cleanup of abandoned uploads. If R2 is unavailable, the API returns the fixed
-repository-controlled `demo-product.svg` and its verified SHA-256 hash. The
-merchant sees a fallback notice and can still complete the core signed flow.
+cleanup of abandoned uploads. Once a real image has been selected, production
+never silently replaces it with the repository demo image. If the R2 binding is
+missing or a write fails, `/api/product-images` returns a recoverable
+`image_storage_unavailable` error with HTTP 503 and the merchant can retry the
+same draft after storage recovers.
 
-## Card-free fallback and optional Cloudflare setup
+The fixed `demo-product.svg` and its signed hash remain supported only for
+legacy/demo references that already use the explicit demo image key; it is not
+used as an automatic fallback for a failed real-image upload.
 
-The default deployment deliberately omits the `PRODUCT_IMAGES` binding and
-uses the fixed demo image, because enabling R2 requires a billing profile. This
-keeps the hackathon deployment card-free and prevents a nonexistent binding
-from blocking the Worker deployment.
+## Cloudflare R2 deployment setup
 
-If R2 is enabled later, create the buckets with:
+The judging-readiness configuration binds `PRODUCT_IMAGES` to
+`nimtrace-images` in production and uses `nimtrace-images-preview` for remote
+development/preview storage. Both buckets must exist in the Cloudflare account
+before deploying the Worker configuration that contains the binding.
+
+Create the buckets with:
 
 ```powershell
 node --use-system-ca node_modules\wrangler\bin\wrangler.js r2 bucket create nimtrace-images-preview
 node --use-system-ca node_modules\wrangler\bin\wrangler.js r2 bucket create nimtrace-images
 ```
 
-Then add a `PRODUCT_IMAGES` R2 binding for `nimtrace-images`, with
-`nimtrace-images-preview` as its preview bucket. The application code already
-detects the binding and switches from fallback to real object storage without
-any other code change.
+The matching Worker configuration is:
+
+```jsonc
+"r2_buckets": [
+  {
+    "binding": "PRODUCT_IMAGES",
+    "bucket_name": "nimtrace-images",
+    "preview_bucket_name": "nimtrace-images-preview"
+  }
+]
+```
+
+After deployment, verify that `POST /api/product-images` returns
+`fallback: false` for a real image and that its returned `/api/product-images`
+URL still serves the stored object after a page reload.

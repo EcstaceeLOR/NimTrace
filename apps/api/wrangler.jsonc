@@ -20,10 +20,17 @@
       "migrations_dir": "migrations"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "PRODUCT_IMAGES",
+      "bucket_name": "nimtrace-images",
+      "preview_bucket_name": "nimtrace-images-preview"
+    }
+  ],
   "vars": {
     "ENVIRONMENT": "production",
     "APP_VERSION": "0.1.0",
-    "NIMIQ_NETWORK": "main-albatross"
-    ,"CORS_ORIGIN": "https://nimtrace.vercel.app"
+    "NIMIQ_NETWORK": "main-albatross",
+    "CORS_ORIGIN": "https://nimtrace.vercel.app"
   }
 }
