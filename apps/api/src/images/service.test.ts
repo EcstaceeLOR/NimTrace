@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import {
   DEMO_IMAGE_HASH,
@@ -98,29 +96,33 @@ describe('safe product image storage', () => {
     )).rejects.toMatchObject({ code: 'image_too_large', status: 413 })
   })
 
-  it('returns the fixed signed demo image when R2 is unavailable', async () => {
+  it('fails explicitly when the R2 binding is missing', async () => {
+    await expect(storeProductImage(
+      undefined,
+      'NQ12 TEST WALLET ADDRESS',
+      'image/webp',
+      webp().buffer,
+    )).rejects.toMatchObject({
+      code: 'image_storage_unavailable',
+      status: 503,
+    })
+  })
+
+  it('fails explicitly when R2 rejects a write instead of publishing the demo image', async () => {
     const bucket = { put: vi.fn().mockRejectedValue(new Error('R2 unavailable')) } as unknown as R2Bucket
-    const result = await storeProductImage(
+
+    await expect(storeProductImage(
       bucket,
       'NQ12 TEST WALLET ADDRESS',
       'image/webp',
       webp().buffer,
-    )
-
-    expect(result).toEqual({
-      bytes: 0,
-      fallback: true,
-      height: 800,
-      imageHash: DEMO_IMAGE_HASH,
-      imageKey: DEMO_IMAGE_KEY,
-      url: '/demo-product.svg',
-      width: 800,
+    )).rejects.toMatchObject({
+      code: 'image_storage_unavailable',
+      status: 503,
     })
-    const fallback = readFileSync(new URL('../../../web/public/demo-product.svg', import.meta.url))
-    expect(createHash('sha256').update(fallback).digest('hex')).toBe(DEMO_IMAGE_HASH)
   })
 
-  it('allows signing only the stored final content hash or exact demo fallback', async () => {
+  it('allows signing only the stored final content hash or exact legacy demo fallback', async () => {
     const imageHash = 'c'.repeat(64)
     const walletAddress = 'NQ12 TEST WALLET ADDRESS'
     const stored = await storeProductImage(
