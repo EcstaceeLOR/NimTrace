@@ -15,11 +15,15 @@ function fakeProvider(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function adapterFor(provider = fakeProvider(), options: { timeoutMs?: number; hostAvailable?: boolean } = {}) {
+function adapterFor(
+  provider = fakeProvider(),
+  options: { timeoutMs?: number; interactiveTimeoutMs?: number; hostAvailable?: boolean } = {},
+) {
   const requestDeviceIdentifier = vi.fn().mockResolvedValue('a'.repeat(64))
   const init = vi.fn().mockResolvedValue(provider)
   const adapter = new NimiqPayWalletAdapter({
     timeoutMs: options.timeoutMs,
+    interactiveTimeoutMs: options.interactiveTimeoutMs,
     hostAvailable: () => options.hostAvailable ?? true,
     currentUrl: () => 'https://nimtrace.example/products/demo?ref=qr',
     sdk: { init, requestDeviceIdentifier },
@@ -82,6 +86,21 @@ describe('NimiqPayWalletAdapter', () => {
     await vi.advanceTimersByTimeAsync(101)
 
     await expect(pending).resolves.toMatchObject({ status: 'error', error: { code: 'REQUEST_TIMEOUT' } })
+  })
+
+  it('allows interactive payment approval to outlive the short provider timeout', async () => {
+    vi.useFakeTimers()
+    const provider = fakeProvider({
+      sendBasicTransactionWithData: vi.fn(() => new Promise<string>((resolve) => {
+        setTimeout(() => resolve('transaction-hash'), 150)
+      })),
+    })
+    const { adapter } = adapterFor(provider, { timeoutMs: 100, interactiveTimeoutMs: 300 })
+    const pending = adapter.pay({ recipient: account, valueLuna: 100_000, data: 'nt:purchase:abc123' })
+
+    await vi.advanceTimersByTimeAsync(151)
+
+    await expect(pending).resolves.toEqual({ status: 'success', value: { transactionHash: 'transaction-hash' } })
   })
 
   it('normalizes signatures and rejects malformed provider results', async () => {

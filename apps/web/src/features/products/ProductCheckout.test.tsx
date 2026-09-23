@@ -148,9 +148,10 @@ describe('ProductCheckout', () => {
     fireEvent.click(payButton)
     fireEvent.click(payButton)
 
-    expect(await screen.findByText('Payment submitted')).toBeInTheDocument()
+    expect(await screen.findByText('Payment in progress')).toBeInTheDocument()
+    expect(screen.getByText('Checkout created')).toBeInTheDocument()
+    expect(screen.getByText('Transaction detected')).toBeInTheDocument()
     expect(screen.getByText(/not yet a completed purchase/i)).toBeInTheDocument()
-    expect(screen.getByText(/checking automatically/i)).toBeInTheDocument()
     expect(checkoutWallet.pay).toHaveBeenCalledTimes(1)
     expect(checkoutWallet.pay).toHaveBeenCalledWith({
       recipient: intent.sellerAddress,
@@ -163,14 +164,32 @@ describe('ProductCheckout', () => {
     }))
   })
 
-  it('automatically advances finality progress into the issued ownership proof', async () => {
+  it('automatically advances the staged finality tracker into the issued ownership proof', async () => {
     const checkoutWallet = wallet()
-    const fetcher = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(intent), { status: 201 }))
-      .mockResolvedValueOnce(submission())
-      .mockResolvedValueOnce(finalityVerification(24))
-      .mockResolvedValueOnce(verification('verified'))
-      .mockResolvedValueOnce(issuedPassport())
+    let verificationCalls = 0
+    let releaseVerified!: (response: Response) => void
+    const verifiedResponse = new Promise<Response>((resolve) => {
+      releaseVerified = resolve
+    })
+
+    const fetcher = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === `/api/products/${product.id}/purchase-intents`) {
+        return Promise.resolve(new Response(JSON.stringify(intent), { status: 201 }))
+      }
+      if (url === `/api/payment-intents/${intent.id}/submissions`) {
+        return Promise.resolve(submission())
+      }
+      if (url === `/api/payment-intents/${intent.id}/verification`) {
+        verificationCalls += 1
+        if (verificationCalls === 1) return Promise.resolve(finalityVerification(24))
+        return verifiedResponse
+      }
+      if (url === `/api/payment-intents/${intent.id}/completion` && init?.method === 'POST') {
+        return Promise.resolve(issuedPassport())
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
 
     render(<ProductCheckout
       authenticate={vi.fn().mockResolvedValue(authentication)}
@@ -185,15 +204,21 @@ describe('ProductCheckout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Buy with NIM' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Pay 1 NIM' }))
 
-    expect(await screen.findByText(/24 \/ 60 confirmations/i)).toBeInTheDocument()
-    expect(screen.getByText(/about a minute after inclusion/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/24 \/ 60 confirmations/i)).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('Included on Nimiq network')).toBeInTheDocument()
+    expect(screen.getByText('Network finality')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Network finality confirmations' })).toHaveAttribute('aria-valuenow', '24')
+
+    releaseVerified(verification('verified'))
+
     expect(await screen.findByText('Payment confirmed — ownership proof ready')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Complete')).toHaveLength(5)
     expect(screen.getByRole('link', { name: 'Open ownership proof' })).toHaveAttribute('href', `/passports/${passportId}`)
     expect(checkoutWallet.pay).toHaveBeenCalledTimes(1)
-    expect(fetcher).toHaveBeenNthCalledWith(4, `/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
+    expect(fetcher).toHaveBeenCalledWith(`/api/payment-intents/${intent.id}/verification`, expect.objectContaining({
       headers: { Authorization: `Bearer ${authentication.session.sessionToken}` },
     }))
-    expect(fetcher).toHaveBeenNthCalledWith(5, `/api/payment-intents/${intent.id}/completion`, expect.objectContaining({
+    expect(fetcher).toHaveBeenCalledWith(`/api/payment-intents/${intent.id}/completion`, expect.objectContaining({
       method: 'POST',
     }))
   })
@@ -218,7 +243,7 @@ describe('ProductCheckout', () => {
     expect(checkoutStorage.removeItem).toHaveBeenCalled()
   })
 
-  it('blocks another payment after a delayed provider result', async () => {
+  it('blocks another payment and shows the discovery stage after a delayed provider result', async () => {
     const checkoutStorage = storage()
     render(<ProductCheckout
       authenticate={vi.fn().mockResolvedValue(authentication)}
@@ -235,7 +260,9 @@ describe('ProductCheckout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Buy with NIM' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Pay 1 NIM' }))
 
-    expect(await screen.findByText('Payment result delayed')).toBeInTheDocument()
+    expect(await screen.findByText('Payment reconciliation in progress')).toBeInTheDocument()
+    expect(screen.getByText('Transaction detected')).toBeInTheDocument()
+    expect(screen.getByLabelText('In progress')).toBeInTheDocument()
     expect(screen.getByText(/do not pay again/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pay 1 NIM' })).not.toBeInTheDocument()
     expect([...checkoutStorage.values.values()][0]).toContain('awaiting_wallet')
@@ -261,7 +288,7 @@ describe('ProductCheckout', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Pay 1 NIM' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Retry status update' }))
 
-    await waitFor(() => expect(screen.getByText('Payment submitted')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Payment in progress')).toBeInTheDocument())
     expect(checkoutWallet.pay).toHaveBeenCalledTimes(1)
     expect(fetcher).toHaveBeenCalledTimes(4)
   })
@@ -288,6 +315,7 @@ describe('ProductCheckout', () => {
     /></StrictMode>)
 
     expect(await screen.findByText('Payment confirmed — ownership proof ready')).toBeInTheDocument()
+    expect(screen.getAllByLabelText('Complete')).toHaveLength(5)
     expect(screen.getByRole('link', { name: 'Open ownership proof' })).toHaveAttribute('href', `/passports/${passportId}`)
     expect(screen.getByRole('link', { name: 'View in my passports' })).toHaveAttribute('href', '/wallet')
     expect(checkoutWallet.pay).not.toHaveBeenCalled()
@@ -323,7 +351,8 @@ describe('ProductCheckout', () => {
       wallet={checkoutWallet}
     />)
 
-    expect(await screen.findByText('Payment submitted')).toBeInTheDocument()
+    expect(await screen.findByText('Payment in progress')).toBeInTheDocument()
+    expect(screen.getByText('Transaction detected')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Check payment status' })).toBeInTheDocument()
     expect(checkoutWallet.pay).not.toHaveBeenCalled()
     expect(fetcher).toHaveBeenNthCalledWith(1, `/api/payment-intents/${intent.id}/submissions`, expect.objectContaining({
