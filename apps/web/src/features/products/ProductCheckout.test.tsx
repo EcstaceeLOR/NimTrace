@@ -178,7 +178,7 @@ describe('ProductCheckout', () => {
       fetcher={fetcher}
       product={product}
       publicUrl="https://nimtrace.example/products/test"
-      reconcileIntervalMs={100}
+      reconcileIntervalMs={500}
       storage={storage()}
       wallet={checkoutWallet}
     />)
