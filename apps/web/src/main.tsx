@@ -5,6 +5,7 @@ import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { installQrBarcodeDetectorFallback } from './lib/qr/barcodeDetectorFallback'
 import './styles.css'
 import './product-images.css'
+import './mobile.css'
 
 installQrBarcodeDetectorFallback()
 
