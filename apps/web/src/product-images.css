@@ -64,6 +64,36 @@
   aspect-ratio: 1;
 }
 
+.verification-hero__identity {
+  display: grid;
+  grid-template-columns: minmax(9rem, 15rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.verification-product-image.product-image-frame {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 1rem;
+}
+
+.verification-image-note {
+  max-width: 62ch;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+  .verification-hero__identity {
+    grid-template-columns: 1fr;
+  }
+
+  .verification-product-image.product-image-frame {
+    max-width: 18rem;
+  }
+}
+
 @keyframes product-image-shimmer {
   to { background-position-x: -200%; }
 }
