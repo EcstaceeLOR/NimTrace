@@ -37,7 +37,7 @@ const passport = {
     title: 'NimTrace Headphones',
     version: 1,
   },
-  publicUrl: 'https://nimtrace.example/passports/passport-id-with-entropy',
+  publicUrl: 'https://nimtrace.vercel.app/passports/passport-id-with-entropy',
   purchase: {
     blockHeight: 123456,
     confirmedAt: '2026-09-14T12:00:00.000Z',
