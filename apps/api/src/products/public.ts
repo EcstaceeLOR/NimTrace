@@ -6,8 +6,10 @@ import {
   type PublicProductResponse,
 } from '@nimtrace/contracts'
 import { DEMO_IMAGE_KEY } from '../images/service'
+import { NimiqRpcClient, communityRpcUrl } from '../payments/rpc'
 import { INCLUSION_GRACE_MS } from '../payments/verification'
 import { verifySignedProof } from '../proofs/verifier'
+import { getPublicCheckoutProgress } from './checkout-progress'
 
 interface PublicProductRow {
   canonical_payload: string
@@ -90,6 +92,7 @@ export async function getPublicProduct(
   network: NimiqNetwork,
   version?: number,
   now = new Date(),
+  includeCheckoutProgress = true,
 ): Promise<PublicProductResponse> {
   const activeCheckoutCutoff = new Date(now.getTime() - INCLUSION_GRACE_MS).toISOString()
   const row = await productRow(db, productId, activeCheckoutCutoff, version)
@@ -148,8 +151,18 @@ export async function getPublicProduct(
             ? 'owned'
             : 'invalid'
 
+  const checkoutProgress = includeCheckoutProgress && state === 'checked_out'
+    ? await getPublicCheckoutProgress(
+      db,
+      row.product_id,
+      network,
+      new NimiqRpcClient({ fallbackUrl: communityRpcUrl(network) }),
+      now,
+    )
+    : null
   const imageKey = signed?.imageKey ?? row.image_key ?? DEMO_IMAGE_KEY
   return {
+    checkoutProgress,
     currentVersion: row.current_version,
     description: signed?.description ?? row.description,
     id: row.product_id,
@@ -185,7 +198,7 @@ export async function listPublicProducts(
   const items: PublicProductResponse[] = []
   for (const row of rows.results) {
     try {
-      const product = await getPublicProduct(db, row.id, network)
+      const product = await getPublicProduct(db, row.id, network, undefined, new Date(), false)
       if (
         product.signatureState === 'verified'
         && ['available', 'checked_out', 'owned'].includes(product.state)

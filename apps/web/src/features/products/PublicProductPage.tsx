@@ -8,6 +8,7 @@ import {
 import { ProductImage } from '../../components/ProductImage'
 import { formatNimFromLuna } from '../../lib/formatting/nim'
 import { ProductCheckout } from './ProductCheckout'
+import { PaymentProgress } from './PaymentProgress'
 import { MiniAppTabs } from '../../components/MiniAppTabs'
 
 interface PublicProductPageProps {
@@ -35,22 +36,36 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
 
   useEffect(() => {
     const controller = new AbortController()
-    const params = new URLSearchParams({ live: String(Date.now()) })
-    fetch(`/api/products/${encodeURIComponent(productId)}?${params.toString()}`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+    let stopped = false
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+
+    async function loadProduct() {
+      const params = new URLSearchParams({ live: String(Date.now()) })
+      try {
+        const response = await fetch(`/api/products/${encodeURIComponent(productId)}?${params.toString()}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
         if (!response.ok) throw new Error(response.status === 404 ? 'Product not found.' : 'Product verification is unavailable.')
-        return PublicProductResponseSchema.parse(await response.json())
-      })
-      .then((product) => setState({ status: 'ready', product }))
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
+        const product = PublicProductResponseSchema.parse(await response.json())
+        if (stopped) return
+        setState({ status: 'ready', product })
+        if (product.state === 'checked_out') {
+          refreshTimer = setTimeout(() => void loadProduct(), 5_000)
+        }
+      } catch (error: unknown) {
+        if (!controller.signal.aborted && !stopped) {
           setState({ status: 'error', message: error instanceof Error ? error.message : 'Product verification failed.' })
         }
-      })
-    return () => controller.abort()
+      }
+    }
+
+    void loadProduct()
+    return () => {
+      stopped = true
+      controller.abort()
+      if (refreshTimer) clearTimeout(refreshTimer)
+    }
   }, [productId])
 
   useEffect(() => {
@@ -114,6 +129,19 @@ export function PublicProductPage({ productId }: PublicProductPageProps) {
               <button className="button button--primary" type="button" disabled>{unavailableLabel}</button>
             </div>
           )}
+
+          {product.state === 'checked_out' && (
+            <section className="public-checkout-progress" aria-labelledby="public-checkout-progress-title">
+              <p className="eyebrow">LIVE CHECKOUT</p>
+              <h2 id="public-checkout-progress-title">Purchase progress</h2>
+              <p>NimTrace checks the active payment on-chain every few seconds. Buyer identity, payment tag, and transaction hash stay private.</p>
+              <PaymentProgress publicProgress={product.checkoutProgress} />
+              {product.checkoutProgress && (
+                <small>Last checked {new Date(product.checkoutProgress.checkedAt).toLocaleTimeString()}.</small>
+              )}
+            </section>
+          )}
+
           <p className="product-trust-note">Payment will go directly to the issuer. NimTrace does not provide escrow or independently inspect the physical item.</p>
         </article>
       </section>

@@ -49,9 +49,18 @@ describe('PublicProductPage', () => {
     )
   })
 
-  it('blocks a product with checkout in progress before another buyer can enter checkout', async () => {
+  it('shows the real checkout stage before another buyer can enter checkout', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       ...product,
+      checkoutProgress: {
+        blockHeight: 12345,
+        checkedAt: '2026-09-24T00:02:00.000Z',
+        confirmations: 24,
+        finalityConfirmations: 60,
+        finalityReached: false,
+        included: true,
+        transactionDetected: true,
+      },
       state: 'checked_out',
     }))))
 
@@ -59,6 +68,11 @@ describe('PublicProductPage', () => {
 
     expect(await screen.findByText('Checkout in progress', { selector: '.product-state' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Checkout in progress' })).toBeDisabled()
+    expect(screen.getByRole('heading', { name: 'Purchase progress' })).toBeInTheDocument()
+    expect(screen.getByText('Included in block 12345.')).toBeInTheDocument()
+    expect(screen.getByText(/24 \/ 60 confirmations/i)).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Network finality confirmations' })).toHaveAttribute('aria-valuenow', '24')
+    expect(screen.getByText(/buyer identity, payment tag, and transaction hash stay private/i)).toBeInTheDocument()
     expect(screen.getByText(/another buyer currently has an active checkout/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Buy with NIM' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Open in Nimiq Pay' })).not.toBeInTheDocument()

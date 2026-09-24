@@ -180,8 +180,10 @@ describe('public catalogue backend lifecycle projection', () => {
       'main-albatross',
       undefined,
       new Date('2026-09-23T20:02:00.000Z'),
+      false,
     )
     expect(reserved.state).toBe('checked_out')
+    expect(reserved.checkoutProgress).toBeNull()
     expect((await listPublicProducts(db, 'main-albatross')).items.map((item) => item.state)).toEqual(['checked_out'])
 
     database.prepare(`

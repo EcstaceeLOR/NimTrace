@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { PublicCheckoutProgressResponseSchema } from './payments'
 import { ProofEnvelopeSchema } from './proofs'
 
 const hashSchema = z.string().regex(/^[a-f0-9]{64}$/)
@@ -59,6 +60,7 @@ export const PublicProductStateSchema = z.enum([
 ])
 
 export const PublicProductResponseSchema = z.object({
+  checkoutProgress: PublicCheckoutProgressResponseSchema.nullable().optional(),
   currentVersion: z.number().int().positive(),
   description: z.string().max(4000),
   id: z.string().min(1).max(128),

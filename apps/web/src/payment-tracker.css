@@ -2,6 +2,24 @@
   margin: 1.25rem 0;
 }
 
+.public-checkout-progress {
+  background: rgba(17, 24, 32, 0.72);
+  border: 1px solid rgba(57, 224, 195, 0.24);
+  border-radius: 1.25rem;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.public-checkout-progress h2 {
+  margin: 0.2rem 0 0.45rem;
+}
+
+.public-checkout-progress > p:not(.eyebrow),
+.public-checkout-progress > small {
+  color: #a9b5c4;
+  line-height: 1.5;
+}
+
 .payment-progress__list {
   display: grid;
   gap: 0;
