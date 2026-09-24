@@ -60,4 +60,26 @@ jobs:
 
       - name: Verify production health
         run: |
-          node -e "fetch('https://nimtrace-api.nimtrace.workers.dev/api/health', { cache: 'no-store' }).then(async r => { if (!r.ok) throw new Error('health '+r.status); const j = await r.json(); if (j.version !== process.env.GITHUB_SHA) throw new Error('Worker version mismatch: '+j.version); console.log('Worker deployed:', j.version) })"
+          node <<'NODE'
+          const expected = process.env.GITHUB_SHA
+          const url = 'https://nimtrace-api.nimtrace.workers.dev/api/health'
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+          for (let attempt = 1; attempt <= 12; attempt += 1) {
+            try {
+              const response = await fetch(`${url}?deploy=${Date.now()}`, { cache: 'no-store' })
+              if (!response.ok) throw new Error(`health ${response.status}`)
+              const health = await response.json()
+              if (health.version === expected) {
+                console.log('Worker deployed:', health.version)
+                process.exit(0)
+              }
+              console.log(`Attempt ${attempt}: waiting for Worker propagation (${health.version})`)
+            } catch (error) {
+              console.log(`Attempt ${attempt}: health check not ready (${error instanceof Error ? error.message : error})`)
+            }
+            if (attempt < 12) await sleep(5_000)
+          }
+
+          throw new Error(`Worker version ${expected} was not visible after propagation retries`)
+          NODE
