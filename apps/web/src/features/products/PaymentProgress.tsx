@@ -1,8 +1,9 @@
-import type { PaymentVerificationResponse } from '@nimtrace/contracts'
+import type { PaymentVerificationResponse, PublicCheckoutProgressResponse } from '@nimtrace/contracts'
 import '../../payment-tracker.css'
 
 interface PaymentProgressProps {
   confirmed?: boolean
+  publicProgress?: PublicCheckoutProgressResponse | null
   transactionHash?: string
   verification?: PaymentVerificationResponse
 }
@@ -23,18 +24,22 @@ function progressState(complete: boolean, current: boolean): StepState {
 
 export function PaymentProgress({
   confirmed = false,
+  publicProgress,
   transactionHash,
   verification,
 }: PaymentProgressProps) {
   const hash = verification?.transactionHash ?? transactionHash
-  const transactionDetected = Boolean(hash)
-  const included = confirmed
+  const transactionDetected = publicProgress?.transactionDetected ?? Boolean(hash)
+  const included = publicProgress?.included ?? (
+    confirmed
     || verification?.state === 'verified'
     || verification?.blockHeight !== null && verification?.blockHeight !== undefined
     || verification?.confirmations !== null && verification?.confirmations !== undefined
-  const finalityReached = confirmed || verification?.state === 'verified'
-  const confirmations = verification?.confirmations ?? 0
-  const required = Math.max(1, verification?.finalityConfirmations ?? 60)
+  )
+  const finalityReached = publicProgress?.finalityReached ?? (confirmed || verification?.state === 'verified')
+  const confirmations = publicProgress?.confirmations ?? verification?.confirmations ?? 0
+  const required = Math.max(1, publicProgress?.finalityConfirmations ?? verification?.finalityConfirmations ?? 60)
+  const blockHeight = publicProgress?.blockHeight ?? verification?.blockHeight
   const finalityPercent = finalityReached
     ? 100
     : Math.min(100, Math.round((confirmations / required) * 100))
@@ -48,15 +53,17 @@ export function PaymentProgress({
     {
       label: 'Transaction detected',
       detail: transactionDetected
-        ? 'NimTrace has the transaction hash and can follow this exact payment.'
+        ? publicProgress
+          ? 'NimTrace has detected the payment transaction without exposing buyer details.'
+          : 'NimTrace has the transaction hash and can follow this exact payment.'
         : 'Waiting for Nimiq Pay or chain discovery to return the payment transaction.',
       state: progressState(transactionDetected, !transactionDetected),
     },
     {
       label: 'Included on Nimiq network',
       detail: included
-        ? verification?.blockHeight != null
-          ? `Included in block ${verification.blockHeight}.`
+        ? blockHeight != null
+          ? `Included in block ${blockHeight}.`
           : 'The payment is included on-chain.'
         : 'This will check off as soon as the network includes the payment.',
       state: progressState(included, transactionDetected && !included),
