@@ -80,9 +80,20 @@ export const PaymentVerificationResponseSchema = z.object({
   transactionHash: z.string().regex(/^[a-f0-9]{64}$/i).nullable(),
 }).strict()
 
+export const PublicCheckoutProgressResponseSchema = z.object({
+  blockHeight: z.number().int().nonnegative().safe().nullable(),
+  checkedAt: z.iso.datetime(),
+  confirmations: z.number().int().nonnegative().safe().nullable(),
+  finalityConfirmations: z.number().int().positive().safe(),
+  finalityReached: z.boolean(),
+  included: z.boolean(),
+  transactionDetected: z.boolean(),
+}).strict()
+
 export type PaymentIntentStatus = z.infer<typeof PaymentIntentStatusSchema>
 export type PurchaseIntentResponse = z.infer<typeof PurchaseIntentResponseSchema>
 export type PaymentSubmissionResponse = z.infer<typeof PaymentSubmissionResponseSchema>
 export type PaymentVerificationState = z.infer<typeof PaymentVerificationStateSchema>
 export type PaymentVerificationReason = z.infer<typeof PaymentVerificationReasonSchema>
 export type PaymentVerificationResponse = z.infer<typeof PaymentVerificationResponseSchema>
+export type PublicCheckoutProgressResponse = z.infer<typeof PublicCheckoutProgressResponseSchema>
