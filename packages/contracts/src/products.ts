@@ -60,7 +60,7 @@ export const PublicProductStateSchema = z.enum([
 ])
 
 export const PublicProductResponseSchema = z.object({
-  checkoutProgress: PublicCheckoutProgressResponseSchema.nullable(),
+  checkoutProgress: PublicCheckoutProgressResponseSchema.nullable().default(null),
   currentVersion: z.number().int().positive(),
   description: z.string().max(4000),
   id: z.string().min(1).max(128),
