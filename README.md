@@ -23,14 +23,48 @@ physical product and the lifecycle that follows it:
 > Scan a product and verify its authenticity, purchase-backed ownership,
 > warranty, and service history in under ten seconds.
 
-The Cycle II submission is deliberately focused on making that promise work
-reliably inside Nimiq Pay on a real phone.
+The Cycle II submission is focused on making that promise work reliably inside
+Nimiq Pay on real mobile devices.
 
 **Open in Nimiq Pay:** Mini Apps → Custom URL → `https://nimtrace.vercel.app`
 
 **Web preview:** https://nimtrace.vercel.app
 
 **Production API:** https://nimtrace-api.nimtrace.workers.dev/api/health
+
+## Marketplace lifecycle
+
+The public catalogue is backend-authoritative and separates products into three
+mutually exclusive states:
+
+- **Available** — no active checkout exists and a buyer can start a purchase.
+- **Checkout in progress** — an active buyer-bound purchase intent currently
+  reserves the product, so other buyers cannot enter checkout.
+- **Completed** — payment reached finality, the ownership passport was issued,
+  and the product is no longer purchasable.
+
+If an unpaid checkout expires or safely fails, the reservation is released and
+the product returns to **Available**. The API derives this state from D1 purchase
+intent and product lifecycle data; the frontend only renders the state returned
+by the backend.
+
+## Payment finality flow
+
+NimTrace does not treat a wallet approval alone as a completed purchase. The
+checkout UI tracks the payment through real verification stages:
+
+1. **Checkout created** — amount, seller, product, and unique payment tag are
+   locked in a buyer-bound intent.
+2. **Transaction detected** — NimTrace has found the on-chain transaction.
+3. **Included on Nimiq network** — the transaction has entered a block.
+4. **Network finality** — confirmation progress is shown until the configured
+   finality threshold is reached.
+5. **Ownership proof issued** — the buyer receives the product passport and can
+   open its public proof or wallet-owned passport view.
+
+Interrupted or delayed wallet flows are reconciled automatically while the page
+is open, and the user is explicitly warned not to submit a second payment while
+an existing tagged transaction is being checked.
 
 ## Why Nimiq is load-bearing
 
@@ -43,6 +77,16 @@ reliably inside Nimiq Pay on a real phone.
 - NimTrace never holds funds, signs for users, or accesses private keys.
 
 Remove Nimiq from the system and the core ownership claim stops working.
+
+## Product images and mobile use
+
+Product images are processed client-side before upload, stored in Cloudflare R2,
+and content-hashed into the signed product record. Camera capture and device-file
+selection are separate flows so Android Nimiq Pay users can choose an existing
+image instead of being forced into the camera.
+
+Public product and passport QR links remain HTTPS URLs that can be verified
+without connecting a wallet.
 
 ## Documentation
 
@@ -92,31 +136,55 @@ The web app runs at `http://localhost:5173` and the Worker API at
 `http://localhost:8787`. See the development guide for physical-device loading
 inside Nimiq Pay and all quality commands.
 
-## Deployment and architecture
+## Production architecture and deployment
 
-The React/Vite client and Hono API deploy together on a Cloudflare Worker so
-wallet calls remain same-origin. D1 stores replay-protected sessions, payment
-intents, passports, and append-only lifecycle history. Read-only Nimiq RPC
-providers independently verify payments. Product images are stored in Cloudflare
-R2 through the `PRODUCT_IMAGES` binding and are content-hashed into the signed
-product record.
+Production is split into two independently deployed surfaces:
+
+- **Frontend:** React/Vite is deployed to Vercel at
+  `https://nimtrace.vercel.app`. `vercel.json` rewrites `/api/*` requests to the
+  production Cloudflare Worker and serves the SPA for application routes.
+- **Backend:** the Hono API runs as the `nimtrace-api` Cloudflare Worker. D1
+  stores wallet sessions, signed products, buyer-bound payment intents,
+  passports, and lifecycle history. R2 stores product images.
+
+API changes on `main` are deployed through the `Deploy API Worker` GitHub Actions
+workflow. The workflow typechecks and tests the API, builds the required web
+assets for the Worker bundle, deploys with Wrangler, and verifies the production
+`/api/health` version before succeeding. CI requires repository secrets named
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+A manual Worker deployment is also available with:
+
+```bash
+npm run deploy:api
+```
 
 ## Stack
 
 - React, TypeScript, and Vite
 - `@nimiq/mini-app-sdk`
-- Cloudflare Pages and Workers
+- Vercel
+- Cloudflare Workers
 - Hono API
 - Cloudflare D1 and R2
 - Zod validation
 - Vitest and Playwright
+- GitHub Actions
+
+## Quality gate
+
+The main CI pipeline covers linting, TypeScript checks, local D1 migrations,
+workspace unit tests, production builds, and Playwright judge-critical E2E tests.
+Backend lifecycle tests specifically prove that active purchase intents move a
+product out of **Available** and into **Checkout in progress**, and that completed
+or expired flows transition correctly.
 
 ## Limitations
 
 NimTrace proves signed digital history and NIM payment evidence. It does not
 physically inspect products, guarantee merchant claims, provide escrow,
 insurance, refunds, or legal ownership adjudication. Production acceptance still
-requires the two-phone checklist documented in the release gate.
+requires the real-device/two-wallet checklist documented in the release gate.
 
 ## License
 
